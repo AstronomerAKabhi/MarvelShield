@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "MarvelShield",
+  "version": "1.0.0",
+  "description": "Browser-level protection powered by MarvelShield AI WAF — intercepts and warns about malicious requests in real-time.",
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "MarvelShield Protection",
+    "default_icon": {
+      "16":  "icons/icon16.png",
+      "48":  "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+
+  "icons": {
+    "16":  "icons/icon16.png",
+    "48":  "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ],
+
+  "permissions": [
+    "storage",
+    "alarms",
+    "notifications",
+    "tabs"
+  ],
+
+  "host_permissions": [
+    "http://localhost:8000/*",
+    "http://localhost:3000/*"
+  ]
+}

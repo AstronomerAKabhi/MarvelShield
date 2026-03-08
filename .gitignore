@@ -1,0 +1,36 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+*.egg-info/
+dist/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build / compiled
+*.o
+*.so
+*.dll
+sensor
+
+# Misc
+.antigravity
+.pyre_configuration
+pyrightconfig.json

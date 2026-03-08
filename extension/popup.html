@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MarvelShield</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="container">
+
+    <!-- ── Header ── -->
+    <header class="header">
+      <div class="shield-wrap">
+        <svg class="shield-svg" viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="sg" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%"   stop-color="#ff4444"/>
+              <stop offset="100%" stop-color="#8b0000"/>
+            </linearGradient>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="2.5" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+          <path class="shield-body"
+            d="M50 4 L96 22 L96 60 C96 88 74 108 50 116 C26 108 4 88 4 60 L4 22 Z"
+            fill="url(#sg)" filter="url(#glow)"/>
+          <path d="M50 14 L86 29 L86 60 C86 83 68 101 50 108 C32 101 14 83 14 60 L14 29 Z"
+            fill="rgba(0,0,0,0.25)"/>
+          <text x="50" y="76" text-anchor="middle"
+            font-size="44" font-weight="900" fill="white"
+            font-family="'Segoe UI',Arial,sans-serif"
+            style="text-shadow:0 2px 8px rgba(0,0,0,0.6)">M</text>
+        </svg>
+        <div class="shield-ring"></div>
+      </div>
+
+      <div class="brand-info">
+        <h1 class="brand-name">MarvelShield</h1>
+        <p class="brand-tag">AI-Powered Browser Protection</p>
+      </div>
+
+      <div id="status-badge" class="status-badge connecting">
+        <span class="pulse-dot"></span>
+        <span id="status-text">Connecting</span>
+      </div>
+    </header>
+
+    <!-- ── Offline help panel ── -->
+    <div id="offline-panel" class="offline-panel hidden">
+      <div class="offline-icon">⚡</div>
+      <div class="offline-info">
+        <p class="offline-title">MarvelShield Not Running</p>
+        <p class="offline-desc">Start all services to enable protection:</p>
+        <code class="offline-cmd">./start.sh</code>
+      </div>
+    </div>
+
+    <!-- ── Stats grid ── -->
+    <div class="stats-grid">
+      <div class="stat-card s-blocked">
+        <span class="stat-icon">🚫</span>
+        <span id="stat-blocked" class="stat-num">0</span>
+        <span class="stat-lbl">GW Blocked</span>
+      </div>
+      <div class="stat-card s-allowed">
+        <span class="stat-icon">📊</span>
+        <span id="stat-allowed" class="stat-num">0</span>
+        <span class="stat-lbl">GW Requests</span>
+      </div>
+      <div class="stat-card s-patches">
+        <span class="stat-icon">🧩</span>
+        <span id="stat-patches" class="stat-num">0</span>
+        <span class="stat-lbl">Active Patches</span>
+      </div>
+      <div class="stat-card s-ips">
+        <span class="stat-icon">🔒</span>
+        <span id="stat-ips" class="stat-num">0</span>
+        <span class="stat-lbl">Banned IPs</span>
+      </div>
+    </div>
+
+    <!-- ── Browser-level row ── -->
+    <div class="browser-row">
+      <span class="browser-label">🌐 Browser</span>
+      <div class="browser-stats">
+        <span class="browser-stat">
+          <span class="browser-dot red"></span>
+          <span id="browser-blocked">0</span> blocked
+        </span>
+        <span class="browser-sep">·</span>
+        <span class="browser-stat">
+          <span class="browser-dot green"></span>
+          <span id="browser-allowed">0</span> allowed
+        </span>
+      </div>
+    </div>
+
+    <!-- ── Patch section ── -->
+    <section class="patches-section">
+      <div class="section-header">
+        <span class="section-title">Active Patches</span>
+        <button id="btn-refresh" class="btn-refresh" title="Refresh patches">
+          <span id="refresh-icon">↻</span>
+        </button>
+      </div>
+      <div id="patch-list" class="patch-list">
+        <div class="empty-state">
+          <span class="empty-icon">🔍</span>
+          <p>No patches loaded yet.</p>
+          <p class="empty-sub">Patches appear after attacks are detected.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Footer ── -->
+    <footer class="footer">
+      <div class="sync-info">
+        <span class="sync-dot" id="sync-dot"></span>
+        <span id="last-sync" class="sync-text">Never synced</span>
+      </div>
+      <button id="btn-dashboard" class="btn-dashboard">
+        <span>Open Dashboard</span>
+        <span class="btn-arrow">↗</span>
+      </button>
+    </footer>
+
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
