@@ -1051,10 +1051,98 @@ header {
 }
 
 .flash { animation: flash 0.4s ease; }
+
+/* ── Login Overlay ───────────────────────────────────────────────────────── */
+#login-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: linear-gradient(135deg, #0d1129 0%, #1b2048 60%, #0d1129 100%);
+  display: flex; align-items: center; justify-content: center;
+}
+#login-overlay.hidden { display: none; }
+.login-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 18px;
+  padding: 40px 36px 32px;
+  width: 360px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 24px 80px rgba(0,0,0,0.6), 0 0 60px rgba(79,127,247,0.08);
+  animation: loginAppear 0.4s cubic-bezier(.22,.68,0,1.2) both;
+}
+@keyframes loginAppear {
+  from { opacity:0; transform: scale(0.92) translateY(20px); }
+  to   { opacity:1; transform: scale(1) translateY(0); }
+}
+.login-logo-wrap {
+  display: flex; align-items: center; justify-content: center;
+  gap: 12px; margin-bottom: 6px;
+}
+.login-logo-icon { font-size: 36px; filter: drop-shadow(0 0 12px rgba(79,127,247,0.7)); }
+.login-logo-text {
+  font-size: 22px; font-weight: 800; color: #fff; letter-spacing: -0.4px;
+}
+.login-subtitle {
+  text-align: center; font-size: 12px; color: var(--s-txt-dim);
+  letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 28px;
+}
+.login-field { margin-bottom: 14px; }
+.login-field input {
+  width: 100%; padding: 11px 14px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 9px; color: #fff; font-size: 14px;
+  outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+}
+.login-field input::placeholder { color: rgba(255,255,255,0.3); }
+.login-field input:focus {
+  border-color: rgba(79,127,247,0.6);
+  box-shadow: 0 0 0 3px rgba(79,127,247,0.15);
+}
+.login-error {
+  font-size: 12px; color: #ff6b6b; min-height: 18px;
+  margin-bottom: 10px; text-align: center;
+}
+.login-btn {
+  width: 100%; padding: 12px;
+  background: linear-gradient(135deg, #4f7ff7, #7c3aed);
+  border: none; border-radius: 9px; color: #fff;
+  font-size: 14px; font-weight: 700; cursor: pointer;
+  transition: opacity 0.2s, transform 0.15s;
+  letter-spacing: 0.3px;
+}
+.login-btn:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+.login-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.login-footer {
+  text-align: center; font-size: 11px;
+  color: rgba(255,255,255,0.2); margin-top: 18px;
+}
 </style>
 </head>
 
 <body>
+<!-- ── Login Overlay ──────────────────────────────────────────────────────── -->
+<div id="login-overlay">
+  <div class="login-card">
+    <div class="login-logo-wrap">
+      <span class="login-logo-icon">🛡️</span>
+      <span class="login-logo-text">MarvelShield</span>
+    </div>
+    <p class="login-subtitle">Security Operations Dashboard</p>
+    <form id="login-form" autocomplete="on">
+      <div class="login-field">
+        <input id="login-user" type="text" placeholder="Username"
+               autocomplete="username" spellcheck="false" required />
+      </div>
+      <div class="login-field">
+        <input id="login-pass" type="password" placeholder="Password"
+               autocomplete="current-password" required />
+      </div>
+      <p id="login-error" class="login-error"></p>
+      <button id="login-btn" class="login-btn" type="submit">Access Dashboard</button>
+    </form>
+    <p class="login-footer">MarvelShield · AI-Powered Self-Healing Gateway</p>
+  </div>
+</div>
 <!-- ── Header ─────────────────────────────────────────────────────────────── -->
 <header>
   <div class="logo">
@@ -1066,6 +1154,7 @@ header {
   </div>
   <div class="header-right">
     <button id="mute-btn" class="mute-btn" title="Toggle alert sounds">🔊</button>
+    <button id="logout-btn" class="mute-btn" title="Log out" style="font-size:13px;">⎋ Logout</button>
     <div id="conn-status" class="status-pill offline">
       <span class="pulse"></span>
       <span id="conn-label">DISCONNECTED</span>
@@ -1308,6 +1397,63 @@ header {
 </div>
 
 <script>
+// ── Auth ────────────────────────────────────────────────────────────────────
+(function () {
+  const overlay   = document.getElementById('login-overlay');
+  const form      = document.getElementById('login-form');
+  const userInput = document.getElementById('login-user');
+  const passInput = document.getElementById('login-pass');
+  const errEl     = document.getElementById('login-error');
+  const btn       = document.getElementById('login-btn');
+
+  function hideOverlay() { overlay.classList.add('hidden'); }
+
+  async function attemptLogin(username, password) {
+    btn.disabled = true; btn.textContent = 'Verifying…'; errEl.textContent = '';
+    try {
+      const res  = await fetch('/api/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        sessionStorage.setItem('ms_token', data.token);
+        hideOverlay();
+      } else {
+        errEl.textContent = data.error || 'Invalid credentials';
+        passInput.value = ''; passInput.focus();
+      }
+    } catch {
+      errEl.textContent = 'Cannot reach bridge — is MarvelShield running?';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Access Dashboard';
+    }
+  }
+
+  // Auto-login if a valid token exists from a previous session
+  const saved = sessionStorage.getItem('ms_token');
+  if (saved) {
+    fetch('/api/auth/check', { headers: { 'x-auth-token': saved } })
+      .then(r => r.json())
+      .then(d => { if (d.valid) hideOverlay(); else sessionStorage.removeItem('ms_token'); })
+      .catch(() => {});
+  }
+
+  // If token passed via URL (from extension), validate and use it
+  const urlToken = new URLSearchParams(location.search).get('token');
+  if (urlToken) {
+    fetch('/api/auth/check', { headers: { 'x-auth-token': urlToken } })
+      .then(r => r.json())
+      .then(d => { if (d.valid) { sessionStorage.setItem('ms_token', urlToken); hideOverlay(); } })
+      .catch(() => {});
+  }
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    attemptLogin(userInput.value.trim(), passInput.value);
+  });
+})();
+
 // ── Alert Sound System ──────────────────────────────────────────────────────
 let alertsMuted = false;
 let audioCtx = null;
@@ -1995,6 +2141,19 @@ wafModal.addEventListener('click', e => { if (e.target === wafModal) closeWafMod
     btn.title = alertsMuted ? 'Alerts muted — click to unmute' : 'Toggle alert sounds';
   });
 })();
+
+// Logout
+document.getElementById('logout-btn').addEventListener('click', async () => {
+  const token = sessionStorage.getItem('ms_token');
+  if (token) {
+    await fetch('/api/logout', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    }).catch(() => {});
+    sessionStorage.removeItem('ms_token');
+  }
+  location.reload();
+});
 
 wafTabs.forEach(btn => {
   btn.addEventListener('click', () => renderWafTab(btn.dataset.tab));

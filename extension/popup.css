@@ -489,3 +489,45 @@ body.connected .shield-body {
 .btn-dashboard:active { transform: translateY(0); }
 .btn-dashboard:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
 .btn-arrow { font-size: 14px; }
+
+/* ── Login Screen ──────────────────────────────────────────────────────────── */
+.login-screen {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 32px 24px 24px;
+  min-height: 300px; animation: fadeIn 0.3s ease both;
+}
+.login-screen.hidden { display: none; }
+.login-shield { width: 56px; height: 68px; margin-bottom: 12px; }
+.login-title {
+  font-size: 18px; font-weight: 800; color: var(--text);
+  margin-bottom: 3px; letter-spacing: -0.3px;
+}
+.login-sub { font-size: 11px; color: var(--text-muted); margin-bottom: 20px; }
+#ext-login-form { width: 100%; display: flex; flex-direction: column; gap: 10px; }
+.login-input {
+  width: 100%; padding: 10px 12px;
+  background: var(--bg-card-2); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 13px; outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.login-input::placeholder { color: var(--text-dim); }
+.login-input:focus {
+  border-color: var(--blue); box-shadow: 0 0 0 3px rgba(68,138,255,0.15);
+}
+.login-err {
+  font-size: 11px; color: var(--red); min-height: 16px; text-align: center;
+}
+.login-submit {
+  padding: 10px; background: linear-gradient(135deg, #448aff, #7c3aed);
+  border: none; border-radius: 8px; color: #fff;
+  font-size: 13px; font-weight: 700; cursor: pointer;
+  transition: opacity 0.2s, transform 0.15s;
+}
+.login-submit:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
+.login-submit:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-logout {
+  background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+  color: var(--text-muted); border-radius: 7px; padding: 5px 9px;
+  font-size: 13px; cursor: pointer; transition: background 0.2s;
+}
+.btn-logout:hover { background: rgba(220,20,60,0.15); color: var(--red); }

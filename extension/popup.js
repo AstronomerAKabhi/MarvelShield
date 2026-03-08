@@ -3,9 +3,95 @@
 const STORAGE_KEY_PATCHES = "ms_patches";
 const STORAGE_KEY_STATS   = "ms_stats";
 const STORAGE_KEY_STATUS  = "ms_connection_status";
+const STORAGE_KEY_TOKEN   = "ms_auth_token";
 
 const DASHBOARD_URL    = "http://localhost:3000";
 const DASHBOARD_HEALTH = "http://localhost:3000/health";
+const LOGIN_URL        = "http://localhost:3000/api/login";
+const AUTH_CHECK_URL   = "http://localhost:3000/api/auth/check";
+const LOGOUT_URL       = "http://localhost:3000/api/logout";
+
+// ─── Login Screen ─────────────────────────────────────────────────────────────
+
+const loginScreen     = document.getElementById("login-screen");
+const mainContainer   = document.getElementById("main-container");
+const extLoginForm    = document.getElementById("ext-login-form");
+const extUserInput    = document.getElementById("ext-user");
+const extPassInput    = document.getElementById("ext-pass");
+const extLoginError   = document.getElementById("ext-login-error");
+const extLoginBtn     = document.getElementById("ext-login-btn");
+
+function showLogin()  { loginScreen.classList.remove("hidden"); mainContainer.classList.add("hidden"); }
+function showMain()   { loginScreen.classList.add("hidden"); mainContainer.classList.remove("hidden"); }
+
+async function checkAuth() {
+  const token = await getStoredToken();
+  if (!token) { showLogin(); return; }
+  try {
+    const res  = await fetch(AUTH_CHECK_URL, { headers: { "x-auth-token": token } });
+    const data = await res.json();
+    if (data.valid) { showMain(); }
+    else { await chrome.storage.local.remove(STORAGE_KEY_TOKEN); showLogin(); }
+  } catch {
+    // Bridge offline — if token exists locally, still show main popup (offline mode)
+    showMain();
+  }
+}
+
+async function getStoredToken() {
+  return new Promise(resolve => {
+    chrome.storage.local.get(STORAGE_KEY_TOKEN, r => resolve(r[STORAGE_KEY_TOKEN] || null));
+  });
+}
+
+extLoginForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const username = extUserInput.value.trim();
+  const password = extPassInput.value;
+  if (!username || !password) { extLoginError.textContent = "Enter username and password"; return; }
+
+  extLoginBtn.disabled = true;
+  extLoginBtn.textContent = "Verifying…";
+  extLoginError.textContent = "";
+
+  try {
+    const res  = await fetch(LOGIN_URL, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      await chrome.storage.local.set({ [STORAGE_KEY_TOKEN]: data.token });
+      extPassInput.value = "";
+      showMain();
+    } else {
+      extLoginError.textContent = data.error || "Invalid credentials";
+      extPassInput.value = ""; extPassInput.focus();
+    }
+  } catch {
+    extLoginError.textContent = "MarvelShield not running — start services first";
+  } finally {
+    extLoginBtn.disabled = false;
+    extLoginBtn.textContent = "Unlock";
+  }
+});
+
+// Logout button
+document.getElementById("btn-logout").addEventListener("click", async () => {
+  const token = await getStoredToken();
+  if (token) {
+    fetch(LOGOUT_URL, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    }).catch(() => {});
+    await chrome.storage.local.remove(STORAGE_KEY_TOKEN);
+  }
+  showLogin();
+  extUserInput.value = ""; extPassInput.value = "";
+});
+
+// Run auth check on popup open
+checkAuth();
 
 // ─── Attack Definitions ───────────────────────────────────────────────────────
 const ATTACK_DEFINITIONS = {
@@ -181,7 +267,10 @@ async function openDashboard() {
       cache: "no-store",
     });
     if (res.ok) {
-      chrome.tabs.create({ url: DASHBOARD_URL });
+      getStoredToken().then(token => {
+        const url = token ? (DASHBOARD_URL + "/?token=" + token) : DASHBOARD_URL;
+        chrome.tabs.create({ url });
+      });
     } else {
       showDashboardOffline();
     }
@@ -368,7 +457,10 @@ async function openDashboard() {
       cache: "no-store",
     });
     if (res.ok) {
-      chrome.tabs.create({ url: DASHBOARD_URL });
+      getStoredToken().then(token => {
+        const url = token ? (DASHBOARD_URL + "/?token=" + token) : DASHBOARD_URL;
+        chrome.tabs.create({ url });
+      });
     } else {
       showDashboardOffline();
     }

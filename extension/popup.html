@@ -7,7 +7,36 @@
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
-  <div class="container">
+
+  <!-- ── Login Screen ── -->
+  <div id="login-screen" class="login-screen hidden">
+    <div class="login-logo-wrap">
+      <svg class="login-shield" viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="lg2" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#ff4444"/>
+            <stop offset="100%" stop-color="#8b0000"/>
+          </linearGradient>
+        </defs>
+        <path d="M50 4 L96 22 L96 60 C96 88 74 108 50 116 C26 108 4 88 4 60 L4 22 Z"
+              fill="url(#lg2)" filter="url(#glow2)"/>
+        <text x="50" y="76" text-anchor="middle" font-size="44" font-weight="900"
+              fill="white" font-family="'Segoe UI',Arial,sans-serif">M</text>
+      </svg>
+    </div>
+    <h2 class="login-title">MarvelShield</h2>
+    <p class="login-sub">Enter credentials to monitor</p>
+    <form id="ext-login-form">
+      <input id="ext-user" type="text" class="login-input" placeholder="Username"
+             autocomplete="username" spellcheck="false" />
+      <input id="ext-pass" type="password" class="login-input" placeholder="Password"
+             autocomplete="current-password" />
+      <p id="ext-login-error" class="login-err"></p>
+      <button type="submit" id="ext-login-btn" class="login-submit">Unlock</button>
+    </form>
+  </div>
+
+  <div class="container" id="main-container">
 
     <!-- ── Header ── -->
     <header class="header">
@@ -120,13 +149,16 @@
         <span class="sync-dot" id="sync-dot"></span>
         <span id="last-sync" class="sync-text">Never synced</span>
       </div>
-      <button id="btn-dashboard" class="btn-dashboard">
-        <span>Open Dashboard</span>
-        <span class="btn-arrow">↗</span>
-      </button>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <button id="btn-logout" class="btn-logout" title="Log out">⎋</button>
+        <button id="btn-dashboard" class="btn-dashboard">
+          <span>Open Dashboard</span>
+          <span class="btn-arrow">↗</span>
+        </button>
+      </div>
     </footer>
 
-  </div>
+  </div><!-- /#main-container -->
   <script src="popup.js"></script>
 </body>
 </html>

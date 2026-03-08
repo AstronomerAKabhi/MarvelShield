@@ -23,8 +23,11 @@
 
 "use strict";
 
+require("dotenv").config();
+
 const http      = require("http");
 const path      = require("path");
+const crypto    = require("crypto");
 const express   = require("express");
 const { Server } = require("socket.io");
 const Redis     = require("ioredis");
@@ -40,6 +43,36 @@ const SOCKET_EVENT    = "security_event";
 const TIMELINE_KEY    = "threat_timeline";
 const TIMELINE_MAX    = 500;   // events retained in Redis
 const HISTORY_SEND    = 200;   // events sent to a newly-connected client
+
+// Auth credentials — set in .env, fallback to safe defaults
+const DASHBOARD_USER  = process.env.DASHBOARD_USER || "admin";
+const DASHBOARD_PASS  = process.env.DASHBOARD_PASS || "marvelshield";
+const SESSION_TTL_MS  = 24 * 60 * 60 * 1000; // 24 hours
+
+// ---------------------------------------------------------------------------
+// Session store  (token → expiry timestamp)
+// ---------------------------------------------------------------------------
+const sessions = new Map();
+
+function createSession() {
+    const token = crypto.randomBytes(32).toString("hex");
+    sessions.set(token, Date.now() + SESSION_TTL_MS);
+    return token;
+}
+
+function validateSession(token) {
+    if (!token) return false;
+    const expiry = sessions.get(token);
+    if (!expiry) return false;
+    if (Date.now() > expiry) { sessions.delete(token); return false; }
+    return true;
+}
+
+// Purge expired sessions periodically
+setInterval(() => {
+    const now = Date.now();
+    for (const [tok, exp] of sessions) if (now > exp) sessions.delete(tok);
+}, 60 * 60 * 1000);
 
 // ---------------------------------------------------------------------------
 // HTTP + Socket.io server
@@ -60,9 +93,40 @@ const io     = new Server(server, {
 
 app.get("/health", (_req, res) => res.json({ status: "ok", bridge: "running" }));
 
-// Serve the dashboard at the root so it loads from the same origin as
-// bridge.js — this eliminates file:// CORS issues and socket.io version mismatches.
-app.get("/", (_req, res) => res.sendFile(path.join(__dirname, "dashboard.html")));
+// ── Auth endpoints ──────────────────────────────────────────────────────────
+app.post("/api/login", express.json(), (req, res) => {
+    const { username, password } = req.body || {};
+    if (
+        typeof username === "string" && typeof password === "string" &&
+        username === DASHBOARD_USER && password === DASHBOARD_PASS
+    ) {
+        const token = createSession();
+        console.log(`[bridge] Login success for user '${username}'`);
+        return res.json({ success: true, token });
+    }
+    console.warn(`[bridge] Failed login attempt for user '${username || "(none)"}'`);
+    return res.status(401).json({ success: false, error: "Invalid username or password" });
+});
+
+app.post("/api/logout", express.json(), (req, res) => {
+    const token = req.headers["x-auth-token"] || req.body?.token;
+    if (token) sessions.delete(token);
+    res.json({ success: true });
+});
+
+app.get("/api/auth/check", (req, res) => {
+    const token = req.headers["x-auth-token"] || req.query.token;
+    res.json({ valid: validateSession(token) });
+});
+
+// Serve the dashboard — pass token via query param from extension
+// e.g. http://localhost:3000/?token=abc → validated → dashboard loads
+app.get("/", (req, res) => {
+    const token = req.query.token;
+    // If token present and valid, serve dashboard (will auto-login via token)
+    // If no token, serve dashboard (login overlay will handle it)
+    res.sendFile(path.join(__dirname, "dashboard.html"));
+});
 
 io.on("connection", async (socket) => {
     console.log(`[bridge] Client connected    id=${socket.id}`);
