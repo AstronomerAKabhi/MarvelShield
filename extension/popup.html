@@ -34,6 +34,24 @@
       <p id="ext-login-error" class="login-err"></p>
       <button type="submit" id="ext-login-btn" class="login-submit">Unlock</button>
     </form>
+    <p class="login-switch">No account? <a id="go-signup" href="#">Sign up</a></p>
+  </div>
+
+  <!-- ── Signup Screen ── -->
+  <div id="signup-screen" class="login-screen hidden">
+    <div class="login-logo-wrap">
+      <span style="font-size:32px;margin-bottom:8px;">🛡️</span>
+    </div>
+    <h2 class="login-title">Create Account</h2>
+    <p class="login-sub">One-time admin setup</p>
+    <form id="ext-signup-form">
+      <input id="su-user" type="text"     class="login-input" placeholder="Username (min 3 chars)" spellcheck="false" />
+      <input id="su-pass" type="password" class="login-input" placeholder="Password (min 6 chars)" />
+      <input id="su-conf" type="password" class="login-input" placeholder="Confirm password" />
+      <p id="ext-signup-error" class="login-err"></p>
+      <button type="submit" id="ext-signup-btn" class="login-submit">Create Account</button>
+    </form>
+    <p class="login-switch"><a id="go-login" href="#">Back to Login</a></p>
   </div>
 
   <div class="container" id="main-container">

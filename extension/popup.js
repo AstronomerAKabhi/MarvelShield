@@ -11,18 +11,28 @@ const LOGIN_URL        = "http://localhost:3000/api/login";
 const AUTH_CHECK_URL   = "http://localhost:3000/api/auth/check";
 const LOGOUT_URL       = "http://localhost:3000/api/logout";
 
+const SIGNUP_URL       = "http://localhost:3000/api/signup";
+
 // ─── Login Screen ─────────────────────────────────────────────────────────────
 
 const loginScreen     = document.getElementById("login-screen");
+const signupScreen    = document.getElementById("signup-screen");
 const mainContainer   = document.getElementById("main-container");
 const extLoginForm    = document.getElementById("ext-login-form");
 const extUserInput    = document.getElementById("ext-user");
 const extPassInput    = document.getElementById("ext-pass");
 const extLoginError   = document.getElementById("ext-login-error");
 const extLoginBtn     = document.getElementById("ext-login-btn");
+const extSignupForm   = document.getElementById("ext-signup-form");
+const extSignupError  = document.getElementById("ext-signup-error");
+const extSignupBtn    = document.getElementById("ext-signup-btn");
 
-function showLogin()  { loginScreen.classList.remove("hidden"); mainContainer.classList.add("hidden"); }
-function showMain()   { loginScreen.classList.add("hidden"); mainContainer.classList.remove("hidden"); }
+function showLogin()  { loginScreen.classList.remove("hidden"); signupScreen.classList.add("hidden"); mainContainer.classList.add("hidden"); }
+function showSignup() { signupScreen.classList.remove("hidden"); loginScreen.classList.add("hidden"); mainContainer.classList.add("hidden"); }
+function showMain()   { loginScreen.classList.add("hidden"); signupScreen.classList.add("hidden"); mainContainer.classList.remove("hidden"); }
+
+document.getElementById("go-signup").addEventListener("click", e => { e.preventDefault(); showSignup(); });
+document.getElementById("go-login").addEventListener("click",  e => { e.preventDefault(); showLogin(); });
 
 async function checkAuth() {
   const token = await getStoredToken();
@@ -32,10 +42,7 @@ async function checkAuth() {
     const data = await res.json();
     if (data.valid) { showMain(); }
     else { await chrome.storage.local.remove(STORAGE_KEY_TOKEN); showLogin(); }
-  } catch {
-    // Bridge offline — if token exists locally, still show main popup (offline mode)
-    showMain();
-  }
+  } catch { showMain(); }
 }
 
 async function getStoredToken() {
@@ -49,41 +56,38 @@ extLoginForm.addEventListener("submit", async (e) => {
   const username = extUserInput.value.trim();
   const password = extPassInput.value;
   if (!username || !password) { extLoginError.textContent = "Enter username and password"; return; }
-
-  extLoginBtn.disabled = true;
-  extLoginBtn.textContent = "Verifying…";
-  extLoginError.textContent = "";
-
+  extLoginBtn.disabled = true; extLoginBtn.textContent = "Verifying…"; extLoginError.textContent = "";
   try {
-    const res  = await fetch(LOGIN_URL, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
+    const res  = await fetch(LOGIN_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, password }) });
     const data = await res.json();
-    if (data.success) {
-      await chrome.storage.local.set({ [STORAGE_KEY_TOKEN]: data.token });
-      extPassInput.value = "";
-      showMain();
-    } else {
-      extLoginError.textContent = data.error || "Invalid credentials";
-      extPassInput.value = ""; extPassInput.focus();
-    }
-  } catch {
-    extLoginError.textContent = "MarvelShield not running — start services first";
-  } finally {
-    extLoginBtn.disabled = false;
-    extLoginBtn.textContent = "Unlock";
-  }
+    if (data.success) { await chrome.storage.local.set({ [STORAGE_KEY_TOKEN]: data.token }); extPassInput.value = ""; showMain(); }
+    else { extLoginError.textContent = data.error || "Invalid credentials"; extPassInput.value = ""; extPassInput.focus(); }
+  } catch { extLoginError.textContent = "MarvelShield not running — start services first"; }
+  finally { extLoginBtn.disabled = false; extLoginBtn.textContent = "Unlock"; }
+});
+
+extSignupForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const u = document.getElementById("su-user").value.trim();
+  const p = document.getElementById("su-pass").value;
+  const c = document.getElementById("su-conf").value;
+  extSignupError.textContent = "";
+  if (p !== c) { extSignupError.textContent = "Passwords do not match."; return; }
+  extSignupBtn.disabled = true; extSignupBtn.textContent = "Creating…";
+  try {
+    const res  = await fetch(SIGNUP_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: u, password: p }) });
+    const data = await res.json();
+    if (data.success) { extSignupError.style.color = "#00e676"; extSignupError.textContent = "Account created! Please log in."; setTimeout(showLogin, 1200); }
+    else { extSignupError.textContent = data.error || "Signup failed."; }
+  } catch { extSignupError.textContent = "MarvelShield not running — start services first."; }
+  finally { extSignupBtn.disabled = false; extSignupBtn.textContent = "Create Account"; }
 });
 
 // Logout button
 document.getElementById("btn-logout").addEventListener("click", async () => {
   const token = await getStoredToken();
   if (token) {
-    fetch(LOGOUT_URL, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token }),
-    }).catch(() => {});
+    fetch(LOGOUT_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }) }).catch(() => {});
     await chrome.storage.local.remove(STORAGE_KEY_TOKEN);
   }
   showLogin();

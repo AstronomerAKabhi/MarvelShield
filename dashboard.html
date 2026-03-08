@@ -1116,6 +1116,17 @@ header {
   text-align: center; font-size: 11px;
   color: rgba(255,255,255,0.2); margin-top: 18px;
 }
+.login-tabs {
+  display: flex; gap: 4px; margin-bottom: 20px;
+  background: rgba(255,255,255,0.05); border-radius: 8px; padding: 3px;
+}
+.login-tab {
+  flex: 1; padding: 7px; border: none; border-radius: 6px;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  background: transparent; color: rgba(255,255,255,0.4);
+  transition: background 0.2s, color 0.2s;
+}
+.login-tab.active { background: rgba(79,127,247,0.25); color: #fff; }
 </style>
 </head>
 
@@ -1128,6 +1139,14 @@ header {
       <span class="login-logo-text">MarvelShield</span>
     </div>
     <p class="login-subtitle">Security Operations Dashboard</p>
+
+    <!-- Tab switcher -->
+    <div class="login-tabs">
+      <button class="login-tab active" id="tab-login"   onclick="switchTab('login')">Login</button>
+      <button class="login-tab"        id="tab-signup"  onclick="switchTab('signup')">Sign Up</button>
+    </div>
+
+    <!-- Login form -->
     <form id="login-form" autocomplete="on">
       <div class="login-field">
         <input id="login-user" type="text" placeholder="Username"
@@ -1140,6 +1159,25 @@ header {
       <p id="login-error" class="login-error"></p>
       <button id="login-btn" class="login-btn" type="submit">Access Dashboard</button>
     </form>
+
+    <!-- Signup form -->
+    <form id="signup-form" autocomplete="off" style="display:none;">
+      <div class="login-field">
+        <input id="signup-user" type="text" placeholder="Choose a username"
+               autocomplete="off" spellcheck="false" required />
+      </div>
+      <div class="login-field">
+        <input id="signup-pass" type="password" placeholder="Choose a password (min 6 chars)"
+               autocomplete="new-password" required />
+      </div>
+      <div class="login-field">
+        <input id="signup-confirm" type="password" placeholder="Confirm password"
+               autocomplete="new-password" required />
+      </div>
+      <p id="signup-error" class="login-error"></p>
+      <button id="signup-btn" class="login-btn" type="submit">Create Account</button>
+    </form>
+
     <p class="login-footer">MarvelShield · AI-Powered Self-Healing Gateway</p>
   </div>
 </div>
@@ -1399,59 +1437,75 @@ header {
 <script>
 // ── Auth ────────────────────────────────────────────────────────────────────
 (function () {
-  const overlay   = document.getElementById('login-overlay');
-  const form      = document.getElementById('login-form');
-  const userInput = document.getElementById('login-user');
-  const passInput = document.getElementById('login-pass');
-  const errEl     = document.getElementById('login-error');
-  const btn       = document.getElementById('login-btn');
+  const overlay    = document.getElementById('login-overlay');
+  const loginForm  = document.getElementById('login-form');
+  const signupForm = document.getElementById('signup-form');
+  const userInput  = document.getElementById('login-user');
+  const passInput  = document.getElementById('login-pass');
+  const errEl      = document.getElementById('login-error');
+  const loginBtn   = document.getElementById('login-btn');
+  const signupBtn  = document.getElementById('signup-btn');
+  const signupErr  = document.getElementById('signup-error');
 
   function hideOverlay() { overlay.classList.add('hidden'); }
 
+  window.switchTab = function(tab) {
+    document.getElementById('tab-login').classList.toggle('active',  tab === 'login');
+    document.getElementById('tab-signup').classList.toggle('active', tab === 'signup');
+    loginForm.style.display  = tab === 'login'  ? '' : 'none';
+    signupForm.style.display = tab === 'signup' ? '' : 'none';
+    errEl.textContent = ''; signupErr.textContent = '';
+  };
+
   async function attemptLogin(username, password) {
-    btn.disabled = true; btn.textContent = 'Verifying…'; errEl.textContent = '';
+    loginBtn.disabled = true; loginBtn.textContent = 'Verifying…'; errEl.textContent = '';
     try {
       const res  = await fetch('/api/login', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
       });
       const data = await res.json();
-      if (data.success) {
-        sessionStorage.setItem('ms_token', data.token);
-        hideOverlay();
-      } else {
-        errEl.textContent = data.error || 'Invalid credentials';
-        passInput.value = ''; passInput.focus();
-      }
-    } catch {
-      errEl.textContent = 'Cannot reach bridge — is MarvelShield running?';
-    } finally {
-      btn.disabled = false; btn.textContent = 'Access Dashboard';
-    }
+      if (data.success) { sessionStorage.setItem('ms_token', data.token); hideOverlay(); }
+      else { errEl.textContent = data.error || 'Invalid credentials'; passInput.value = ''; passInput.focus(); }
+    } catch { errEl.textContent = 'Cannot reach bridge — is MarvelShield running?'; }
+    finally { loginBtn.disabled = false; loginBtn.textContent = 'Access Dashboard'; }
   }
 
-  // Auto-login if a valid token exists from a previous session
+  signupForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    const u = document.getElementById('signup-user').value.trim();
+    const p = document.getElementById('signup-pass').value;
+    const c = document.getElementById('signup-confirm').value;
+    signupErr.textContent = '';
+    if (p !== c) { signupErr.textContent = 'Passwords do not match.'; return; }
+    signupBtn.disabled = true; signupBtn.textContent = 'Creating…';
+    try {
+      const res  = await fetch('/api/signup', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: u, password: p }),
+      });
+      const data = await res.json();
+      if (data.success) { signupErr.style.color='#4caf50'; signupErr.textContent='Account created! Please log in.'; window.switchTab('login'); }
+      else { signupErr.textContent = data.error || 'Signup failed.'; }
+    } catch { signupErr.textContent = 'Cannot reach bridge — is MarvelShield running?'; }
+    finally { signupBtn.disabled = false; signupBtn.textContent = 'Create Account'; }
+  });
+
+  // Auto-login if valid session exists
   const saved = sessionStorage.getItem('ms_token');
   if (saved) {
     fetch('/api/auth/check', { headers: { 'x-auth-token': saved } })
-      .then(r => r.json())
-      .then(d => { if (d.valid) hideOverlay(); else sessionStorage.removeItem('ms_token'); })
-      .catch(() => {});
+      .then(r => r.json()).then(d => { if (d.valid) hideOverlay(); else sessionStorage.removeItem('ms_token'); }).catch(() => {});
   }
 
-  // If token passed via URL (from extension), validate and use it
+  // Auto-login via token from extension URL
   const urlToken = new URLSearchParams(location.search).get('token');
   if (urlToken) {
     fetch('/api/auth/check', { headers: { 'x-auth-token': urlToken } })
-      .then(r => r.json())
-      .then(d => { if (d.valid) { sessionStorage.setItem('ms_token', urlToken); hideOverlay(); } })
-      .catch(() => {});
+      .then(r => r.json()).then(d => { if (d.valid) { sessionStorage.setItem('ms_token', urlToken); hideOverlay(); } }).catch(() => {});
   }
 
-  form.addEventListener('submit', e => {
-    e.preventDefault();
-    attemptLogin(userInput.value.trim(), passInput.value);
-  });
+  loginForm.addEventListener('submit', e => { e.preventDefault(); attemptLogin(userInput.value.trim(), passInput.value); });
 })();
 
 // ── Alert Sound System ──────────────────────────────────────────────────────

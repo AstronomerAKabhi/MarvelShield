@@ -531,3 +531,6 @@ body.connected .shield-body {
   font-size: 13px; cursor: pointer; transition: background 0.2s;
 }
 .btn-logout:hover { background: rgba(220,20,60,0.15); color: var(--red); }
+.login-switch { font-size: 11px; color: var(--text-dim); margin-top: 10px; text-align: center; }
+.login-switch a { color: var(--blue); text-decoration: none; cursor: pointer; }
+.login-switch a:hover { text-decoration: underline; }
