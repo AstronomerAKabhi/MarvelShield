@@ -94,18 +94,55 @@ const io     = new Server(server, {
 app.get("/health", (_req, res) => res.json({ status: "ok", bridge: "running" }));
 
 // ── Auth endpoints ──────────────────────────────────────────────────────────
-app.post("/api/login", express.json(), (req, res) => {
+app.post("/api/signup", express.json(), async (req, res) => {
     const { username, password } = req.body || {};
-    if (
-        typeof username === "string" && typeof password === "string" &&
-        username === DASHBOARD_USER && password === DASHBOARD_PASS
-    ) {
+    if (!username || !password)
+        return res.status(400).json({ success: false, error: "Username and password are required." });
+    if (username.length < 3)
+        return res.status(400).json({ success: false, error: "Username must be at least 3 characters." });
+    if (password.length < 6)
+        return res.status(400).json({ success: false, error: "Password must be at least 6 characters." });
+    try {
+        const existing = await store.hget("ms:credentials", "username");
+        if (existing)
+            return res.status(409).json({ success: false, error: "An account already exists. Please log in." });
+        const hash = crypto.createHash("sha256").update(password).digest("hex");
+        await store.hset("ms:credentials", "username", username, "password_hash", hash);
+        console.log(`[bridge] New admin account registered: '${username}'`);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ success: false, error: "Storage error: " + err.message });
+    }
+});
+
+app.post("/api/login", express.json(), async (req, res) => {
+    const { username, password } = req.body || {};
+    if (!username || !password)
+        return res.status(400).json({ success: false, error: "Username and password are required." });
+
+    let valid = false;
+    try {
+        // Check Redis-registered credentials first (signup takes priority over .env)
+        const storedUser = await store.hget("ms:credentials", "username");
+        const storedHash = await store.hget("ms:credentials", "password_hash");
+        if (storedUser && storedHash) {
+            const hash = crypto.createHash("sha256").update(password).digest("hex");
+            valid = username === storedUser && hash === storedHash;
+        } else {
+            // Fall back to .env credentials
+            valid = username === DASHBOARD_USER && password === DASHBOARD_PASS;
+        }
+    } catch {
+        valid = username === DASHBOARD_USER && password === DASHBOARD_PASS;
+    }
+
+    if (valid) {
         const token = createSession();
-        console.log(`[bridge] Login success for user '${username}'`);
+        console.log(`[bridge] Login success for '${username}'`);
         return res.json({ success: true, token });
     }
-    console.warn(`[bridge] Failed login attempt for user '${username || "(none)"}'`);
-    return res.status(401).json({ success: false, error: "Invalid username or password" });
+    console.warn(`[bridge] Failed login attempt for '${username || "(none)"}'`);
+    return res.status(401).json({ success: false, error: "Invalid username or password." });
 });
 
 app.post("/api/logout", express.json(), (req, res) => {

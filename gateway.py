@@ -11,6 +11,10 @@ import json
 import logging
 import time
 import uvicorn
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("gateway")
@@ -111,7 +115,8 @@ r = redis.Redis(host='127.0.0.1', port=6379, db=0,
 
 watcher = BehavioralWatcher(r)
 
-TARGET_URL = "http://127.0.0.1:8080"
+TARGET_URL = os.getenv("TARGET_APP", "http://127.0.0.1:8080").rstrip("/")
+logger.info("MarvelShield proxying to: %s", TARGET_URL)
 
 # Management API paths — bypass all security checks (IP-ban, logging, patching).
 # These are internal endpoints consumed by the extension and export tools;

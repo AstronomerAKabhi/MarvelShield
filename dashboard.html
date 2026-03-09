@@ -1674,7 +1674,7 @@ function onAttackerBanned(d) {
     `<span style="color:var(--red);font-weight:bold;">${escHtml(d.ip)}</span> ` +
     `permanently banned after <strong>${d.total_attacks}</strong> attacks &nbsp;·&nbsp; ` +
     `types: <span class="highlight">${escHtml(types)}</span> &nbsp;·&nbsp; ` +
-    `first seen: <span style="color:var(--text-dim)">${escHtml(d.first_seen||'')}</span>`
+    `first seen: <span style="color:var(--txt-dim)">${escHtml(d.first_seen||'')}</span>`
   );
 }
 
@@ -1808,10 +1808,10 @@ function onDiagnosis(d) {
 
     const sevHtml  = d.severity
       ? `<span class="patch-severity sev-${d.severity}">${escHtml(d.severity)}</span>` : '';
-    const cveHtml  = d.cve       ? ` &nbsp;<span style="color:var(--blue)">${escHtml(d.cve)}</span>` : '';
+    const cveHtml  = d.cve       ? ` &nbsp;<span style="color:var(--primary)">${escHtml(d.cve)}</span>` : '';
     const typeHtml = d.attack_type ? `<span class="highlight">${escHtml(d.attack_type)}</span>` : 'Attack';
     const reasonHtml = d.reasoning
-      ? `<br/><span style="color:var(--text-dim);font-style:italic">"${escHtml(d.reasoning)}"</span>` : '';
+      ? `<br/><span style="color:var(--txt-dim);font-style:italic">"${escHtml(d.reasoning)}"</span>` : '';
 
     addEvent('malicious', '🔴', 'MALICIOUS', d,
       `${sevHtml}${cveHtml} AI Verdict: ${typeHtml} detected`
@@ -2409,7 +2409,7 @@ function tlBuildCard(entry) {
         <span class="tl-trace-id">${escHtml(entry.trace_id.slice(0, 8))}…</span>
         <span class="tl-attack-badge">${escHtml(entry.attack_type)}</span>
         ${headerSev}
-        ${entry.client_ip ? `<span style="color:var(--text-dim);font-size:10px;">IP: ${escHtml(entry.client_ip)}</span>` : ''}
+        ${entry.client_ip ? `<span style="color:var(--txt-dim);font-size:10px;">IP: ${escHtml(entry.client_ip)}</span>` : ''}
         <span class="tl-status-badge ${entry.status}">${escHtml(statusLabel)}</span>
       </div>
       <div class="tl-steps">${stepsHtml}</div>
